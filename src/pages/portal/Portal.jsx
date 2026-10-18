@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase.js";
-import { useAuth, signOut } from "../../lib/auth.jsx";
+import { useAuth } from "../../lib/auth.jsx";
 import { useRows } from "../../lib/useRows.js";
 import { fmtDate, fmtDateTime } from "../../lib/money.js";
 import { OFFBOARDING } from "../../data/studio.js";
@@ -19,7 +19,6 @@ export function Portal() {
   return (
     <div>
       <H1>Your projects</H1>
-      <P style={{ color: C.mute }}>Signed in as {session.user.email}. <button className="underline" onClick={signOut}>Sign out</button></P>
       {error && <Box tone="bad" title="Could not load">{error.message}</Box>}
       {rows && !rows.length && <Box tone="info" title="No projects yet">Your email has not been added to a project. Ask Ajay to add {session.user.email}.</Box>}
       <div className="grid gap-3">
@@ -73,7 +72,6 @@ export function PortalProject() {
     <div>
       <div className="text-sm mb-1 flex justify-between" style={{ color: C.mute }}>
         <Link to="/portal" style={{ color: C.deep }}>← Your projects</Link>
-        <button className="underline" onClick={signOut}>Sign out</button>
       </div>
       <Tabs label="Project sections" tabs={tabs} value={tab} onChange={setTab} />
       {tab === "overview" && <Overview p={p} go={setTab} />}

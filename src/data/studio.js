@@ -121,11 +121,11 @@ export const ONBOARDING = {
 export const OFFBOARDING = [
   ["Final report", "What was done, results against goals, and what I would do next."],
   ["Handover pack", "Every login, setting and document in one place, with a 30-minute walkthrough for the next person."],
-  ["Access returned", "I remove myself from Ads, Analytics, Tag Manager, hosting and Business Profile, and confirm in writing."],
+  ["Access returned", "I remove myself from Ads, Analytics, Tag Manager, hosting and Business Profile."],
   ["Files and backups", "Website files, a full backup, and all designs and reports, in your own Google Drive."],
-  ["Billing closed", "Final invoice settled, nothing auto-renewing on my side, renewal dates listed for you."],
+  ["Billing closed", "Final invoice settled."],
   ["Feedback", "A short form: what worked, what didn’t. A testimonial only if you are happy to give one."],
-  ["Open door", "30 days of free questions after handover."],
+  ["Open door", "7 days of free questions after handover."],
 ];
 
 /* ───────── the weekly timetable: the same for every client ───────── */

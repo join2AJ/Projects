@@ -9,7 +9,6 @@ import { RECURRING } from "../../lib/schema.js";
 import { STUDIO, STAGES, WEEKLY, ACTIVE_STAGES } from "../../data/studio.js";
 import { draftWeekly, thisWeek, weeklyLabel, WEEKLY_KIND } from "../../lib/weekly.js";
 import { C, inr, Chip, H1, H2, P, Box, T, Card } from "../../components/ui.jsx";
-import { signOut } from "../../lib/auth.jsx";
 
 const ym = (d) => d.slice(0, 7);
 const monthsBack = (n) => {
@@ -147,7 +146,6 @@ export default function Dashboard() {
           <Link to="/studio/pricing" style={{ color: C.deep }}>Price list</Link>
           <Link to="/studio/compare" style={{ color: C.deep }}>Compare</Link>
           <Link to="/studio/overheads" style={{ color: C.deep }}>Overheads</Link>
-          <button className="underline" style={{ color: C.mute }} onClick={signOut}>Sign out</button>
         </div>
       </div>
       {errs.length > 0 && <Box tone="bad" title="Some data did not load">{errs[0].message}</Box>}

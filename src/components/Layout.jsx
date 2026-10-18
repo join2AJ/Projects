@@ -1,7 +1,7 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { C, FB, FH } from "./ui.jsx";
 import { STUDIO } from "../data/studio.js";
-import { useAuth } from "../lib/auth.jsx";
+import { useAuth, emailToLogin, signOut } from "../lib/auth.jsx";
 
 const ADMIN = [["/studio", "Dashboard"], ["/studio/users", "People"], ["/studio/pricing", "Price list"], ["/studio/activity", "Activity"], ["/studio/compare", "Compare"], ["/security", "Security"], ["/account", "Account"]];
 const CLIENT = [["/portal", "My projects"], ["/services", "Services and pricing"], ["/process", "How we work"], ["/security", "Security"], ["/account", "Account"]];
@@ -20,6 +20,17 @@ export default function Layout() {
             ))}
           </nav>
         </div>
+        {session && profile && (
+          <div style={{ background: profile.is_owner ? C.deep : C.goodBg, color: profile.is_owner ? "#fff" : C.good }}>
+            <div className="max-w-5xl mx-auto px-4 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs" aria-label="Who is signed in">
+              <span>
+                Signed in as <b>{profile.full_name || emailToLogin(session.user.email)}</b>
+                {" "}({emailToLogin(session.user.email)}) · {profile.is_owner ? "Admin" : "Client"}
+              </span>
+              <button onClick={signOut} className="underline" style={{ color: "inherit" }}>Sign out</button>
+            </div>
+          </div>
+        )}
       </header>
       <main className="max-w-5xl mx-auto px-4 pt-6 pb-12">
         <Outlet />
