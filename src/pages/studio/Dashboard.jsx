@@ -44,6 +44,7 @@ export default function Dashboard() {
   const time = useRows(() => supabase.from("time_entries").select("*"), []);
   const svc = useRows(() => supabase.from("project_services").select("*"), []);
   const req = useRows(() => supabase.from("requests").select("*").in("status", ["new", "accepted", "in_progress"]).order("created_at", { ascending: false }), []);
+  const dec = useRows(() => supabase.from("decisions").select("id,project_id,answer,client_visible,status").eq("status", "open"), []);
   const pending = useRows(() => supabase.from("updates").select("id,project_id,title,happened_on").eq("client_visible", false).neq("kind", "note").order("happened_on", { ascending: false }), []);
   const iss = useRows(() => supabase.from("issues").select("id,project_id,title,severity,status,owner").in("status", ["open", "in_progress", "waiting_client", "blocked"]), []);
 
@@ -162,6 +163,21 @@ export default function Dashboard() {
               {pending.rows.length > 6 && <li className="text-xs" style={{ color: C.mute }}>and {pending.rows.length - 6} more</li>}
             </ul>
           )}
+        </Card>
+        <Card>
+          <div className="font-semibold text-sm mb-2" style={{ color: C.deep }}>Meeting decisions</div>
+          {(() => {
+            const open = dec.rows || [];
+            const waiting = open.filter((d) => d.client_visible && !d.answer), answered = open.filter((d) => d.answer), drafts = open.filter((d) => !d.client_visible);
+            if (!open.length) return <div className="text-sm" style={{ color: C.mute }}>No open decisions.</div>;
+            const per = [...new Set(open.map((d) => d.project_id))].map((pid) => projects.rows.find((x) => x.id === pid)).filter(Boolean);
+            return (
+              <div className="text-sm">
+                {waiting.length} waiting on clients · {answered.length} answered, to close · {drafts.length} drafts
+                <div className="mt-1">{per.map((p) => <Link key={p.id} to={`/studio/p/${p.slug}`} className="underline mr-3" style={{ color: C.deep }}>{p.name}</Link>)}</div>
+              </div>
+            );
+          })()}
         </Card>
         <Card>
           <div className="font-semibold text-sm mb-2" style={{ color: C.deep }}>Open issues</div>

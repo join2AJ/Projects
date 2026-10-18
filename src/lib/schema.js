@@ -7,6 +7,19 @@ const approved = () => ({ key: "client_visible", label: "Approved: client can se
 export const CLIENT_STATUS = ["active", "lead", "paused", "past"];
 
 export const FIELDS = {
+  decisions: [
+    { key: "meeting_on", label: "Meeting date", type: "date" },
+    { key: "sort", label: "Order", type: "number" },
+    { key: "question", label: "Question (answerable with yes or no)", type: "textarea", required: true },
+    { key: "details", label: "Background for the client", type: "textarea" },
+    { key: "recommendation", label: "Your recommendation", type: "textarea" },
+    { key: "due_on", label: "Answer needed by", type: "date" },
+    { key: "client_visible", label: "Sent: client can see and answer this", type: "bool", def: false },
+    { key: "answer", label: "Answer (the client sets this; you can fill it in during the meeting)", type: "select", options: [["yes", "Yes"], ["no", "No"], ["other", "Other"]] },
+    { key: "answer_note", label: "Answer note", type: "textarea" },
+    { key: "status", label: "Status", type: "select", required: true, options: [["open", "Open"], ["closed", "Closed: decided"]] },
+    { key: "outcome", label: "Final decision (shown to the client)", type: "textarea" },
+  ],
   clients: [
     { key: "name", label: "Client / doctor name", required: true },
     { key: "org", label: "Clinic or business" },

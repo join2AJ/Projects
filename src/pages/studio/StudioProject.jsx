@@ -10,7 +10,7 @@ import { STAGES, SERVICES } from "../../data/studio.js";
 import { REPORTS } from "../../projects/reports.js";
 import Editor from "../../components/Editor.jsx";
 import { C, inr, Chip, H1, H2, P, Box, Tabs, Card } from "../../components/ui.jsx";
-import { FilesPanel, MetricsPanel, ReportPanel, Tag } from "../../components/parts.jsx";
+import { FilesPanel, MetricsPanel, ReportPanel, Tag, ANSWER, byMeeting } from "../../components/parts.jsx";
 import { emailToLogin } from "../../lib/auth.jsx";
 
 const field = "mt-1 w-full px-2 py-1.5 rounded text-sm";
@@ -129,6 +129,47 @@ function MetricsImport({ projectId, onDone }) {
   );
 }
 
+/* ───────── decisions ───────── */
+function SendToggle({ row, reload }) {
+  const go = async () => { await supabase.from("decisions").update({ client_visible: !row.client_visible }).eq("id", row.id); reload(); };
+  return row.client_visible
+    ? <button className="mr-2 underline" style={{ color: C.mute }} onClick={go}>Unsend</button>
+    : <button className="mr-2 underline font-semibold" style={{ color: C.good }} onClick={go}>Send</button>;
+}
+
+/* Summary per meeting and a plain-text checklist for WhatsApp or notes. */
+function DecisionsSummary({ projectId, projectName, bump }) {
+  const { rows } = useRows(() => supabase.from("decisions").select("*").eq("project_id", projectId).order("meeting_on", { ascending: false, nullsFirst: false }).order("sort"), [projectId, bump]);
+  const [copied, setCopied] = useState(null);
+  if (!rows?.length) return null;
+  const mark = (d) => (d.status === "closed" ? "✅" : d.answer ? "🟦" : "⬜");
+  const text = (day, list) => [
+    `${projectName}: decisions${day ? ` for the meeting on ${fmtDate(day)}` : ""}`, "",
+    ...list.map((d, i) => `${mark(d)} ${i + 1}. ${d.question}${d.answer ? `\n   Answer: ${ANSWER[d.answer][0]}${d.answer_note ? `: ${d.answer_note}` : ""}` : ""}${d.outcome ? `\n   Decision: ${d.outcome}` : ""}`),
+    "", "Answer on your project page, Decisions tab.",
+  ].join("\n");
+  const copy = async (day, list) => {
+    try { await navigator.clipboard.writeText(text(day, list)); setCopied(day); } catch { setCopied("fail"); }
+  };
+  return (
+    <div className="grid gap-3 md:grid-cols-2 mb-4">
+      {byMeeting(rows).map(([day, list]) => {
+        const sent = list.filter((d) => d.client_visible), answered = sent.filter((d) => d.answer), closed = list.filter((d) => d.status === "closed");
+        return (
+          <Card key={day}>
+            <div className="font-semibold text-sm" style={{ color: C.deep }}>{day ? `Meeting, ${fmtDate(day)}` : "No meeting date"}</div>
+            <div className="text-sm" style={{ color: C.mute }}>{list.length} items · {sent.length} sent · {answered.length} answered · {closed.length} decided</div>
+            <div className="text-xs mt-1">
+              {["yes", "no", "other"].map((k) => <span key={k} className="mr-2"><Chip tone={ANSWER[k][1]}>{ANSWER[k][0]} {list.filter((d) => d.answer === k).length}</Chip></span>)}
+            </div>
+            <button onClick={() => copy(day, list)} className="mt-2 underline text-xs" style={{ color: C.deep }}>{copied === day ? "Copied" : "Copy checklist for WhatsApp"}</button>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
 /* Approve an update for the client, or take it back. */
 export function Approve({ row, reload }) {
   const go = async (yes) => {
@@ -170,7 +211,7 @@ export default function StudioProject() {
   const seq = Math.max(0, ...(numbers.rows || []).map((r) => r.number.match(new RegExp(`^INV-${year}-(\\d+)$`))?.[1]).filter(Boolean).map(Number));
   const nextNumber = `INV-${year}-${String(seq + 1).padStart(3, "0")}`;
   const tabs = [
-    ["overview", "Overview"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"], ["time", "Time"],
+    ["overview", "Overview"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"], ["time", "Time"],
     ["files", "Files"], ["requests", "Requests"], ["numbers", "Numbers"],
     ...(p.report_key && REPORTS[p.report_key] ? [["report", "Report"]] : []),
     ["access", "Client access"],
@@ -191,6 +232,18 @@ export default function StudioProject() {
         <Editor table="project_services" projectId={id} fields={FIELDS.project_services} order={["created_at", true]}
           defaults={{ ...defaultsFor("project_services"), service_key: "ads-management", name: SERVICES["ads-management"].name, kind: "monthly", price: SERVICES["ads-management"].price, status: "Proposed" }}
           columns={[col("project_services", "name", "Service"), col("project_services", "kind"), col("project_services", "price"), [ "Status", (r) => r.status ], ["Client sees", (r) => (r.client_visible ? "Yes" : "No")]]} />
+      </>)}
+
+      {tab === "decisions" && (<>
+        <P>Questions for the client to answer Yes, No or Other. Drafts stay private until you press <b>Send</b>. After the meeting, Edit an item, set Status to Closed and write the final decision.</P>
+        <DecisionsSummary projectId={id} projectName={p.name} bump={bump} />
+        <Editor table="decisions" onChange={() => setBump((b) => b + 1)} projectId={id} fields={FIELDS.decisions} order={["sort", true]}
+          defaults={{ ...defaultsFor("decisions"), meeting_on: p.next_meeting_at ? new Date(p.next_meeting_at).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }) : today(), status: "open", sort: 100 }}
+          columns={[["#", (r) => r.sort], ["Meeting", (r) => fmtDate(r.meeting_on)], ["Question", (r) => r.question],
+            ["Sent", (r) => (r.client_visible ? <Chip key="s" tone="good">Sent</Chip> : <Chip key="d" tone="info">Draft</Chip>)],
+            ["Answer", (r) => (r.answer ? <span key="a"><Chip tone={ANSWER[r.answer][1]}>{ANSWER[r.answer][0]}</Chip>{r.answer_note ? ` ${r.answer_note}` : ""}</span> : "–")],
+            ["Decision", (r) => (r.status === "closed" ? <span key="c"><Chip tone="good">Closed</Chip> {r.outcome || ""}</span> : "Open")]]}
+          extra={(r, reload) => <SendToggle row={r} reload={() => { reload(); setBump((b) => b + 1); }} />} />
       </>)}
 
       {tab === "updates" && <Editor table="updates" projectId={id} fields={FIELDS.updates} order={["happened_on", false]}

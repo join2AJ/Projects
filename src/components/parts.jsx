@@ -281,3 +281,99 @@ export function ReportPanel({ reportKey, studio }) {
     </Audience.Provider>
   );
 }
+
+/* ───────── decisions (client side) ───────── */
+export const ANSWER = { yes: ["Yes", "good"], no: ["No", "bad"], other: ["Other", "warn"] };
+
+/* Decisions grouped by meeting, newest meeting first. */
+export const byMeeting = (rows) => {
+  const groups = new Map();
+  for (const d of rows) {
+    const k = d.meeting_on || "";
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(d);
+  }
+  return [...groups.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+};
+
+function DecisionCard({ d, n, onSaved }) {
+  const [other, setOther] = useState(d.answer === "other");
+  const [note, setNote] = useState(d.answer_note || "");
+  const [msg, setMsg] = useState(null);
+  const closed = d.status === "closed";
+  const send = async (choice) => {
+    setMsg(null);
+    const { error } = await supabase.rpc("answer_decision", { decision: d.id, choice, note: choice === "other" ? note : null });
+    if (error) return setMsg(error.message);
+    onSaved();
+  };
+  const btn = (k) => {
+    const on = d.answer === k || (k === "other" && other && !d.answer);
+    return (
+      <button key={k} type="button" disabled={closed} aria-pressed={d.answer === k}
+        onClick={() => (k === "other" ? setOther(true) : (setOther(false), send(k)))}
+        className="px-4 py-1.5 rounded text-sm font-semibold"
+        style={{ border: `1px solid ${on ? C[ANSWER[k][1]] : C.rule}`, background: on ? C[ANSWER[k][1] + "Bg"] : "#fff", color: on ? C[ANSWER[k][1]] : C.ink, opacity: closed && !on ? 0.5 : 1 }}>
+        {ANSWER[k][0]}
+      </button>
+    );
+  };
+  return (
+    <div className="p-4 mb-3" style={{ background: C.card, border: `1px solid ${C.rule}`, borderLeft: `4px solid ${closed ? C.good : d.answer ? C.info : C.warn}`, borderRadius: 3 }}>
+      <div className="flex flex-wrap items-baseline gap-2 mb-1">
+        <span className="text-xs" style={{ color: C.mute }}>{n}.</span>
+        <span className="font-semibold text-sm flex-1" style={{ minWidth: 0 }}>{d.question}</span>
+        {closed ? <Chip tone="good">Decided</Chip> : d.answer ? <Chip tone="info">Answered</Chip> : <Chip tone="warn">{d.due_on ? `Answer by ${fmtDate(d.due_on)}` : "Needs your answer"}</Chip>}
+      </div>
+      {d.details && <P style={{ color: C.mute, marginBottom: 6 }}>{d.details}</P>}
+      {d.recommendation && <P style={{ marginBottom: 8 }}><b style={{ color: C.deep }}>Ajay recommends: </b>{d.recommendation}</P>}
+      <div className="flex flex-wrap gap-2 items-center">
+        {["yes", "no", "other"].map(btn)}
+        {d.answer && !closed && <button type="button" className="text-xs underline ml-1" style={{ color: C.mute }} onClick={() => { setOther(false); setNote(""); send(null); }}>Clear</button>}
+        {d.answered_at && <span className="text-xs" style={{ color: C.mute }}>Answered {fmtDate(d.answered_at.slice(0, 10))}</span>}
+      </div>
+      {(other || d.answer === "other") && !closed && (
+        <div className="mt-2">
+          <label htmlFor={`note-${d.id}`} className="block text-xs mb-1" style={{ color: C.mute }}>What would you like instead?</label>
+          <textarea id={`note-${d.id}`} rows={2} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} className="w-full px-2 py-1.5 rounded text-sm" style={{ border: `1px solid ${C.rule}`, background: "#fff" }} />
+          <button type="button" onClick={() => send("other")} className="mt-1 px-3 py-1 rounded text-sm font-semibold" style={{ background: C.deep, color: "#fff" }}>Save answer</button>
+        </div>
+      )}
+      {closed && d.answer === "other" && d.answer_note && <P style={{ marginTop: 8, marginBottom: 0 }}><b>Your note: </b>{d.answer_note}</P>}
+      {closed && d.outcome && <P style={{ marginTop: 8, marginBottom: 0 }}><b style={{ color: C.good }}>Decision: </b>{d.outcome}</P>}
+      {msg && <div className="text-sm mt-2" style={{ color: C.bad }}>{msg}</div>}
+    </div>
+  );
+}
+
+export function DecisionsClient({ projectId }) {
+  const { rows, reload } = useRows(() => supabase.from("decisions").select("*").eq("project_id", projectId).eq("client_visible", true)
+    .order("meeting_on", { ascending: false, nullsFirst: false }).order("sort"), [projectId]);
+  if (!rows) return <P>Loading…</P>;
+  if (!rows.length) return <P style={{ color: C.mute }}>No decisions to make right now.</P>;
+  return (
+    <div>
+      <P>Answer each item with Yes, No or Other. You can change an answer until it is marked decided.</P>
+      {byMeeting(rows).map(([day, list]) => {
+        const done = list.filter((d) => d.answer || d.status === "closed").length;
+        return (
+          <div key={day} className="mb-6">
+            <H2>{day ? `Meeting, ${fmtDate(day)}` : "Other decisions"}</H2>
+            <div className="text-xs mb-3" style={{ color: C.mute }}>{done} of {list.length} answered</div>
+            {list.map((d, i) => <DecisionCard key={d.id + (d.answered_at || "") + d.status} d={d} n={i + 1} onSaved={reload} />)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function DecisionsBanner({ projectId, onOpen }) {
+  const { rows } = useRows(() => supabase.from("decisions").select("id").eq("project_id", projectId).eq("client_visible", true).eq("status", "open").is("answer", null), [projectId]);
+  if (!rows?.length) return null;
+  return (
+    <Box tone="warn" title={`${rows.length} decision${rows.length > 1 ? "s" : ""} need your answer`}>
+      <button className="underline" onClick={onOpen}>Open the decisions checklist</button>
+    </Box>
+  );
+}

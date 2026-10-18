@@ -16,7 +16,7 @@ Only `/login` is public. Everything else needs a signed-in user.
 | URL | Who | What |
 | --- | --- | --- |
 | `/login` | Anyone | Username (or email) and password. No sign-up: the admin creates every account |
-| `/portal`, `/portal/p/<slug>` | Clients | Their projects |
+| `/portal`, `/portal/p/<slug>` | Clients | Their projects, including the **Decisions** checklist (answer Yes / No / Other) |
 | `/services`, `/process`, `/account` | Signed in | Prices, how we work, change password |
 | `/studio` | Admin | Dashboard, including updates waiting for approval |
 | `/studio/users` | Admin | People (create, edit, disable, delete, reset password, projects) and Clinics |
@@ -46,7 +46,8 @@ notes are compiled out of the live site and appear only in `npm run dev`. Use pr
 ### 1. Database (Supabase)
 
 1. Create a Supabase project (free plan allows 2 active projects; pause one if both are used).
-2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`.
+2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`
+   (and `supabase/seed/tailbone_decisions.sql` for the 19 Oct meeting).
    Deploy `supabase/functions/admin-users` (Edge Functions).
    (Already done for the live project `client-portal`, ref `zfinxpsezesqzskhaqad`, Mumbai.)
 3. Authentication → URL Configuration: set **Site URL** to your live address (for example
@@ -70,6 +71,10 @@ username, password and the `/login` address yourself.
 
 - **Update a client:** Updates tab → Add, then **Approve** when it is ready for them. Unapproved updates and
   notes stay private. The dashboard lists everything waiting for approval.
+- **Meeting decisions:** project → Decisions → Add each question (with background and your recommendation),
+  then **Send**. The client answers Yes, No or Other (Other needs a note) and can change it until you close it.
+  After the meeting, Edit → Status Closed → write the final decision; the client sees it. “Copy checklist for
+  WhatsApp” gives a ready-to-paste list with answers.
 - **Bill:** Money → Add invoice (starts as a hidden draft) → **Send** → **Mark paid** when it arrives.
   Sent invoices show on the client's page. Overdue ones show a red banner there, and a **Copy reminder**
   message on your dashboard for WhatsApp.

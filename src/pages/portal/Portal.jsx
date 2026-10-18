@@ -7,7 +7,7 @@ import { useRows } from "../../lib/useRows.js";
 import { fmtDate, fmtDateTime } from "../../lib/money.js";
 import { OFFBOARDING } from "../../data/studio.js";
 import { C, H1, H2, P, Box, T, Tabs, Card } from "../../components/ui.jsx";
-import { StageBar, UpdatesList, IssuesList, DueBanner, MoneyClient, MetricsPanel, FilesPanel, RequestsClient, ReportPanel } from "../../components/parts.jsx";
+import { StageBar, UpdatesList, IssuesList, DueBanner, MoneyClient, MetricsPanel, FilesPanel, RequestsClient, ReportPanel, DecisionsClient, DecisionsBanner } from "../../components/parts.jsx";
 import { REPORTS } from "../../projects/reports.js";
 
 export function Portal() {
@@ -33,13 +33,14 @@ export function Portal() {
   );
 }
 
-function Overview({ p }) {
+function Overview({ p, go }) {
   const svc = useRows(() => supabase.from("project_services").select("*").eq("project_id", p.id).eq("client_visible", true).order("created_at"), [p.id]);
   return (
     <div>
       <H1>{p.name}</H1>
       <P>{p.summary} {p.brief}</P>
       <DueBanner projectId={p.id} />
+      <DecisionsBanner projectId={p.id} onOpen={() => go("decisions")} />
       {p.next_meeting_at && <Box tone="info" title={`Next meeting: ${fmtDateTime(p.next_meeting_at, { dateStyle: "full", timeStyle: "short" })}`}>{p.next_meeting_note}</Box>}
       <H2>Where we are</H2>
       <StageBar stage={p.stage} />
@@ -62,7 +63,7 @@ export function PortalProject() {
   const p = rows[0];
   if (!p) return <Box tone="warn" title="Project not found">This project is not shared with your email. <Link to="/portal" className="underline">Your projects</Link></Box>;
   const tabs = [
-    ["overview", "Overview"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"],
+    ["overview", "Overview"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"],
     ["files", "Files"], ["requests", "Requests"], ["numbers", "Numbers"],
     ...(p.report_key && REPORTS[p.report_key] ? [["report", REPORTS[p.report_key].label]] : []),
     ["handover", "Handover"],
@@ -74,7 +75,8 @@ export function PortalProject() {
         <button className="underline" onClick={signOut}>Sign out</button>
       </div>
       <Tabs label="Project sections" tabs={tabs} value={tab} onChange={setTab} />
-      {tab === "overview" && <Overview p={p} />}
+      {tab === "overview" && <Overview p={p} go={setTab} />}
+      {tab === "decisions" && <DecisionsClient projectId={p.id} />}
       {tab === "updates" && <UpdatesList projectId={p.id} />}
       {tab === "issues" && <IssuesList projectId={p.id} />}
       {tab === "money" && <MoneyClient projectId={p.id} />}

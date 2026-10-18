@@ -48,7 +48,7 @@ function clean(fields, row) {
   return out;
 }
 
-export default function Editor({ table, projectId, fields, order = ["created_at", false], defaults = {}, columns, title, empty, extra, select = "*", canAdd = true }) {
+export default function Editor({ table, projectId, fields, order = ["created_at", false], defaults = {}, columns, title, empty, extra, select = "*", canAdd = true, onChange }) {
   const { rows, error, reload } = useRows(
     () => {
       let q = supabase.from(table).select(select);
@@ -74,6 +74,7 @@ export default function Editor({ table, projectId, fields, order = ["created_at"
     setMsg(["good", "Saved"]);
     setEditing(null);
     reload();
+    onChange?.();
   };
   const remove = async (row) => {
     const q = supabase.from(table).delete();
@@ -81,6 +82,7 @@ export default function Editor({ table, projectId, fields, order = ["created_at"
     setConfirm(null);
     if (error) return setMsg(["bad", error.message]);
     reload();
+    onChange?.();
   };
 
   const shown = columns || fields.filter((f) => !f.hidden).slice(0, 5).map((f) => [f.label, (r) => fmt(f, r[f.key])]);
