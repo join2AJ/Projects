@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%273%27 fill=%27%2312405C%27/%3E%3C/svg%3E" />
+    <title>Client Projects</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Hidden copies of the React forms so Netlify Forms can detect them at deploy time. -->
+    <form name="request" data-netlify="true" netlify-honeypot="bot-field" hidden>
+      <input name="project" /><input name="name" /><select name="type"></select><select name="priority"></select>
+      <textarea name="details"></textarea><input name="link" /><input name="bot-field" />
+    </form>
+    <form name="feedback" data-netlify="true" netlify-honeypot="bot-field" hidden>
+      <input name="project" /><select name="score"></select><textarea name="worked"></textarea>
+      <textarea name="better"></textarea><textarea name="testimonial"></textarea><input name="bot-field" />
+    </form>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
