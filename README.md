@@ -40,11 +40,14 @@ notes are compiled out of the live site and appear only in `npm run dev`. Use pr
 ### 1. Database (Supabase)
 
 1. Create a Supabase project (free plan allows 2 active projects; pause one if both are used).
-2. SQL Editor → run `supabase/migrations/0001_portal.sql`, then `supabase/seed/tailbone.sql`.
+2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `0002_private_helpers.sql`, then `supabase/seed/tailbone.sql`.
+   (Already done for the live project `client-portal`, ref `zfinxpsezesqzskhaqad`, Mumbai.)
 3. Authentication → URL Configuration: set **Site URL** to your live address (for example
    `https://your-site.vercel.app`) and add `http://localhost:5173/**` and `https://your-site.vercel.app/**`
    to **Redirect URLs**.
 4. Project Settings → API: copy the **Project URL** and the **anon / publishable key**.
+5. Supabase's built-in email sender allows only a few sign-in emails an hour. Before inviting several
+   clients, add your own SMTP under Authentication → Emails (for example Resend's free plan).
 
 ### 2. Website (Vercel)
 
