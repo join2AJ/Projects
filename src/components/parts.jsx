@@ -1,0 +1,283 @@
+/* Project building blocks shared by the client portal and the studio. */
+import { useMemo, useState } from "react";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+import { supabase, BUCKET } from "../lib/supabase.js";
+import { useRows } from "../lib/useRows.js";
+import { balance, invoiceState, fmtDate, isOverdue, total } from "../lib/money.js";
+import { LABEL, TONE } from "../lib/schema.js";
+import { STAGES } from "../data/studio.js";
+import { C, inr, Chip, H2, P, Box, T, Pills, Card, Audience } from "./ui.jsx";
+import { REPORTS } from "../projects/reports.js";
+
+export const StageBar = ({ stage }) => {
+  const at = STAGES.findIndex(([id]) => id === stage);
+  return (
+    <ol className="flex flex-wrap gap-2 mb-4 text-xs">
+      {STAGES.map(([id, l], i) => (
+        <li key={id} className="px-3 py-2 rounded" style={{
+          background: i < at ? C.goodBg : i === at ? C.deep : C.card,
+          color: i < at ? C.good : i === at ? "#fff" : C.mute, border: `1px solid ${i === at ? C.deep : C.rule}`, fontWeight: i === at ? 700 : 400,
+        }}>{i + 1}. {l}</li>
+      ))}
+      {stage === "closed" && <li className="px-3 py-2 rounded" style={{ background: C.goodBg, color: C.good }}>Closed</li>}
+    </ol>
+  );
+};
+
+export const Tag = ({ v }) => <Chip tone={TONE[v] || "info"}>{LABEL[v] || v}</Chip>;
+
+/* ───────── updates ───────── */
+/* mode: "all" (newest first), "latest" (done or in progress), "upcoming" (scheduled, soonest first) */
+export function UpdatesList({ projectId, limit, mode = "all" }) {
+  const { rows } = useRows(() => {
+    let q = supabase.from("updates").select("*").eq("project_id", projectId).eq("client_visible", true);
+    if (mode === "latest") q = q.neq("status", "Scheduled");
+    if (mode === "upcoming") q = q.eq("status", "Scheduled");
+    q = q.order("happened_on", { ascending: mode === "upcoming" }).order("created_at", { ascending: false });
+    if (limit) q = q.limit(limit);
+    return q;
+  }, [projectId, limit, mode]);
+  if (!rows) return <P>Loading…</P>;
+  if (!rows.length) return <P style={{ color: C.mute }}>{mode === "upcoming" ? "Nothing scheduled." : "No updates yet."}</P>;
+  return (
+    <ul className="mb-4">
+      {rows.map((u) => (
+        <li key={u.id} className="pl-3 mb-3" style={{ borderLeft: `3px solid ${u.status === "Done" ? C.good : u.status === "Blocked" ? C.bad : C.info}` }}>
+          <div className="flex flex-wrap gap-2 items-center text-xs" style={{ color: C.mute }}>
+            <span>{fmtDate(u.happened_on)}</span><Chip tone="info">{u.kind}</Chip>
+            <Chip tone={u.status === "Done" ? "good" : u.status === "Blocked" ? "bad" : "warn"}>{u.status}</Chip>
+          </div>
+          <div className="font-semibold text-sm">{u.title}</div>
+          {u.body && <div className="text-sm" style={{ color: C.mute, whiteSpace: "pre-wrap" }}>{u.body}</div>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/* ───────── issues ───────── */
+export function IssuesList({ projectId }) {
+  const [f, setF] = useState("active");
+  const { rows } = useRows(() => supabase.from("issues").select("*").eq("project_id", projectId).eq("client_visible", true).order("sort").order("created_at"), [projectId]);
+  if (!rows) return <P>Loading…</P>;
+  const active = (i) => !["resolved", "superseded"].includes(i.status);
+  const list = rows.filter((i) => (f === "all" ? true : f === "active" ? active(i) : !active(i)));
+  return (
+    <div>
+      <P>{rows.filter(active).length} open, {rows.length - rows.filter(active).length} resolved or superseded. “Waiting on you” items need something from your side.</P>
+      <Pills label="Filter issues" value={f} onChange={setF} options={[["active", "Open"], ["closed", "Resolved"], ["all", "All"]]} />
+      {list.map((i) => (
+        <div key={i.id} className="mb-3 p-4" style={{ background: C.card, border: `1px solid ${C.rule}`, borderLeft: `4px solid ${C[TONE[i.severity]]}`, borderRadius: 3 }}>
+          <div className="flex flex-wrap items-center gap-2 mb-1"><Tag v={i.severity} /><Tag v={i.status} /><span className="font-semibold text-sm">{i.title}</span></div>
+          {i.evidence && <P style={{ color: C.mute, marginBottom: 6 }}><b style={{ color: C.ink }}>Evidence. </b>{i.evidence}</P>}
+          {i.fix && <P style={{ marginBottom: 6 }}><b style={{ color: C.good }}>Fix. </b>{i.fix}</P>}
+          {i.now_note && <P style={{ marginBottom: 0 }}><b style={{ color: C.deep }}>Now. </b>{i.now_note}</P>}
+        </div>
+      ))}
+      {!list.length && <P style={{ color: C.mute }}>Nothing here.</P>}
+    </div>
+  );
+}
+
+/* ───────── money ───────── */
+export function DueBanner({ projectId }) {
+  const { rows } = useRows(() => supabase.from("invoices").select("*").eq("project_id", projectId).eq("status", "sent"), [projectId]);
+  const due = (rows || []).filter((i) => balance(i) > 0);
+  if (!due.length) return null;
+  const sum = due.reduce((a, i) => a + balance(i), 0);
+  const late = due.filter(isOverdue);
+  return (
+    <Box tone={late.length ? "bad" : "warn"} title={late.length ? `Payment overdue: ${inr(sum)}` : `Amount due: ${inr(sum)}`}>
+      {due.map((i) => `${i.number} (${inr(balance(i))}, ${invoiceState(i)[0]})`).join(" · ")}. Details on the Money tab.
+    </Box>
+  );
+}
+
+export function MoneyClient({ projectId }) {
+  const inv = useRows(() => supabase.from("invoices").select("*").eq("project_id", projectId).neq("status", "draft").order("issued_on", { ascending: false }), [projectId]);
+  const exp = useRows(() => supabase.from("expenses").select("*").eq("project_id", projectId).eq("client_visible", true).order("spent_on", { ascending: false }), [projectId]);
+  const svc = useRows(() => supabase.from("project_services").select("*").eq("project_id", projectId).eq("client_visible", true).order("created_at"), [projectId]);
+  const rows = inv.rows || [];
+  const billed = rows.filter((i) => i.status !== "void").reduce((a, i) => a + total(i), 0);
+  const paid = rows.reduce((a, i) => a + (i.status === "paid" ? total(i) : Number(i.paid_amount || 0)), 0);
+  return (
+    <div>
+      <DueBanner projectId={projectId} />
+      <H2>Agreed fees</H2>
+      <T head={["Service", "Billing", "Fee (ex-GST)", "Status"]} right={[2]} rows={(svc.rows || []).map((s) => [s.name, s.kind, inr(s.price), s.status])} />
+      <H2>Invoices</H2>
+      <T head={["Invoice", "For", "Issued", "Total", "Status"]} right={[3]} rows={rows.map((i) => {
+        const [l, tone] = invoiceState(i);
+        return [i.number, i.description || "", fmtDate(i.issued_on), inr(total(i)), <Chip key={i.id} tone={tone}>{l}</Chip>];
+      })} />
+      <P style={{ color: C.mute }}>Billed {inr(billed)} · paid {inr(paid)} · balance {inr(billed - paid)}.</P>
+      {(exp.rows || []).length > 0 && (<>
+        <H2>Expenses on your project</H2>
+        <T head={["Date", "What", "Amount", "Paid by", "Billed to you"]} right={[2]} rows={exp.rows.map((e) => [fmtDate(e.spent_on), e.description, inr(e.amount), e.paid_by === "me" ? "Ajay" : "You", e.rebillable ? "Yes" : "No"])} />
+      </>)}
+    </div>
+  );
+}
+
+/* ───────── metrics ───────── */
+export function MetricsPanel({ projectId }) {
+  const { rows } = useRows(() => supabase.from("metrics").select("metric,period,value,unit,source").eq("project_id", projectId).eq("client_visible", true).order("period"), [projectId]);
+  const names = useMemo(() => [...new Set((rows || []).map((r) => r.metric))], [rows]);
+  const [pick, setPick] = useState(null);
+  const m = pick || names[0];
+  if (!rows) return <P>Loading…</P>;
+  if (!names.length) return <P style={{ color: C.mute }}>No numbers recorded yet.</P>;
+  const data = rows.filter((r) => r.metric === m).map((r) => ({ p: r.period.slice(0, 7), v: Number(r.value) }));
+  const unit = rows.find((r) => r.metric === m)?.unit || "";
+  const vals = data.map((d) => d.v);
+  const last12 = vals.slice(-12), prev12 = vals.slice(-24, -12);
+  const sum = (a) => a.reduce((x, y) => x + y, 0);
+  const fmtV = (v) => (unit === "₹" ? inr(v) : Math.round(v).toLocaleString("en-IN") + (unit ? ` ${unit}` : ""));
+  return (
+    <div>
+      <Pills label="Metric" value={m} onChange={setPick} options={names.map((n) => [n, n])} />
+      <div style={{ width: "100%", height: 280 }}>
+        <ResponsiveContainer>
+          <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke={C.rule} vertical={false} />
+            <XAxis dataKey="p" tick={{ fontSize: 10, fill: C.mute }} minTickGap={24} />
+            <YAxis tick={{ fontSize: 11, fill: C.mute }} tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : v)} />
+            <Tooltip formatter={(v) => [fmtV(v), m]} />
+            <Line type="monotone" dataKey="v" stroke={C.deep} strokeWidth={2} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <T head={["Measure", "Value"]} right={[1]} rows={[
+        ["Latest", `${fmtV(vals.at(-1))} (${data.at(-1).p})`],
+        ["Last 12 periods, total", fmtV(sum(last12))],
+        ["Last 12 periods, average", fmtV(sum(last12) / last12.length)],
+        ...(prev12.length === 12 ? [["Change against the 12 before", `${(((sum(last12) - sum(prev12)) / sum(prev12)) * 100).toFixed(0)}%`]] : []),
+        ["Highest", fmtV(Math.max(...vals))],
+      ]} />
+    </div>
+  );
+}
+
+/* ───────── files ───────── */
+export function FilesPanel({ projectId, owner }) {
+  const { rows, reload } = useRows(() => {
+    const q = supabase.from("files").select("*").eq("project_id", projectId);
+    return (owner ? q : q.eq("client_visible", true)).order("created_at", { ascending: false });
+  }, [projectId, owner]);
+  const [busy, setBusy] = useState(null);
+  const [cat, setCat] = useState("other");
+  const [vis, setVis] = useState(true);
+
+  const upload = async (e) => {
+    const list = [...e.target.files];
+    e.target.value = "";
+    for (const file of list) {
+      setBusy(`Uploading ${file.name}…`);
+      const path = `${projectId}/${crypto.randomUUID()}-${file.name.replace(/[^\w.-]+/g, "_")}`;
+      const up = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type || undefined });
+      if (up.error) { setBusy(`Upload failed: ${up.error.message}`); return; }
+      const ins = await supabase.from("files").insert({ project_id: projectId, name: file.name, storage_path: path, size: file.size, mime: file.type, category: cat, client_visible: owner ? vis : true });
+      if (ins.error) { await supabase.storage.from(BUCKET).remove([path]); setBusy(`Could not save ${file.name}: ${ins.error.message}`); return; }
+    }
+    setBusy(null);
+    reload();
+  };
+  const open = async (f) => {
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(f.storage_path, 300);
+    if (error) return setBusy(error.message);
+    window.open(data.signedUrl, "_blank", "noopener");
+  };
+  const remove = async (f) => {
+    await supabase.storage.from(BUCKET).remove([f.storage_path]);
+    await supabase.from("files").delete().eq("id", f.id);
+    reload();
+  };
+  const toggle = async (f) => { await supabase.from("files").update({ client_visible: !f.client_visible }).eq("id", f.id); reload(); };
+
+  return (
+    <div>
+      <Card className="mb-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <label htmlFor="file-cat" className="text-xs" style={{ color: C.mute }}>Type
+            <select id="file-cat" value={cat} onChange={(e) => setCat(e.target.value)} className="block mt-1 px-2 py-1.5 rounded text-sm" style={{ border: `1px solid ${C.rule}` }}>
+              {["report", "design", "contract", "invoice", "data", "asset", "other"].map((c) => <option key={c}>{c}</option>)}
+            </select>
+          </label>
+          {owner && <label className="text-sm flex items-center gap-2"><input type="checkbox" checked={vis} onChange={(e) => setVis(e.target.checked)} /> Client can see</label>}
+          <label htmlFor="file-input" className="px-3 py-1.5 rounded text-sm font-semibold cursor-pointer" style={{ background: C.deep, color: "#fff" }}>
+            Upload files<input id="file-input" type="file" multiple className="hidden" onChange={upload} />
+          </label>
+        </div>
+        <div className="text-xs mt-2" style={{ color: C.mute }}>Up to 50 MB each. {busy}</div>
+      </Card>
+      {!rows ? <P>Loading…</P> : !rows.length ? <P style={{ color: C.mute }}>No files yet.</P> : (
+        <T head={["File", "Type", "Added", "By", ""]} rows={rows.map((f) => [
+          <button key="n" className="underline text-left" style={{ color: C.deep }} onClick={() => open(f)}>{f.name}</button>,
+          f.category, fmtDate(f.created_at.slice(0, 10)), f.uploaded_by || "",
+          owner ? <span key="a" className="text-xs whitespace-nowrap">
+            <button className="underline mr-2" onClick={() => toggle(f)}>{f.client_visible ? "Hide from client" : "Show to client"}</button>
+            <button className="underline" style={{ color: C.bad }} onClick={() => remove(f)}>Delete</button>
+          </span> : "",
+        ])} />
+      )}
+    </div>
+  );
+}
+
+/* ───────── requests (client side) ───────── */
+export function RequestsClient({ projectId }) {
+  const { rows, reload } = useRows(() => supabase.from("requests").select("*").eq("project_id", projectId).order("created_at", { ascending: false }), [projectId]);
+  const [state, setState] = useState(null);
+  const send = async (e) => {
+    e.preventDefault();
+    const d = Object.fromEntries(new FormData(e.target));
+    const { error } = await supabase.from("requests").insert({ project_id: projectId, type: d.type, priority: d.priority, details: d.details, link: d.link || null });
+    if (error) return setState(["bad", error.message]);
+    e.target.reset();
+    setState(["good", "Sent. Ajay is notified on his dashboard and replies here."]);
+    reload();
+  };
+  const fs = { border: `1px solid ${C.rule}`, background: "#fff" };
+  return (
+    <div>
+      <H2>Ask for something</H2>
+      <form onSubmit={send} className="max-w-xl">
+        <div className="grid md:grid-cols-2 gap-x-4">
+          <label htmlFor="rq-type" className="block text-xs mb-3" style={{ color: C.mute }}>Kind
+            <select id="rq-type" name="type" className="mt-1 w-full px-2 py-2 rounded text-sm" style={fs}>{["New work", "Change", "Something is broken", "Question"].map((o) => <option key={o}>{o}</option>)}</select>
+          </label>
+          <label htmlFor="rq-priority" className="block text-xs mb-3" style={{ color: C.mute }}>How urgent
+            <select id="rq-priority" name="priority" defaultValue="This week" className="mt-1 w-full px-2 py-2 rounded text-sm" style={fs}>{["Urgent: today", "This week", "This month", "Whenever"].map((o) => <option key={o}>{o}</option>)}</select>
+          </label>
+        </div>
+        <label htmlFor="rq-details" className="block text-xs mb-3" style={{ color: C.mute }}>What would you like?
+          <textarea id="rq-details" name="details" required rows={4} maxLength={5000} className="mt-1 w-full px-2 py-2 rounded text-sm" style={fs} />
+        </label>
+        <label htmlFor="rq-link" className="block text-xs mb-3" style={{ color: C.mute }}>Link (optional)
+          <input id="rq-link" name="link" type="url" className="mt-1 w-full px-2 py-2 rounded text-sm" style={fs} />
+        </label>
+        <button type="submit" className="px-4 py-2 rounded text-sm font-semibold mb-3" style={{ background: C.deep, color: "#fff" }}>Send request</button>
+        {state && <div className="text-sm mb-3" style={{ color: C[state[0]] }}>{state[1]}</div>}
+      </form>
+      <H2>Your requests</H2>
+      {!rows ? <P>Loading…</P> : !rows.length ? <P style={{ color: C.mute }}>None yet.</P> : (
+        <T head={["Sent", "Request", "Status", "Reply"]} rows={rows.map((r) => [fmtDate(r.created_at.slice(0, 10)), `${r.type}: ${r.details}`, <Tag key="s" v={r.status} />, r.reply || "–"])} />
+      )}
+    </div>
+  );
+}
+
+/* ───────── custom report ───────── */
+export function ReportPanel({ reportKey, studio }) {
+  const r = REPORTS[reportKey];
+  const tabs = (r?.tabs || []).filter((t) => studio || !t[3]);
+  const [tab, setTab] = useState(tabs[0]?.[0]);
+  if (!r) return <P>Report not found.</P>;
+  const Active = tabs.find((t) => t[0] === tab)[2];
+  return (
+    <Audience.Provider value={studio ? "studio" : "client"}>
+      <Pills label="Report sections" options={tabs.map(([id, l, , s]) => [id, s ? `${l} (private)` : l])} value={tab} onChange={setTab} />
+      <Active />
+    </Audience.Provider>
+  );
+}

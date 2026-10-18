@@ -1,0 +1,186 @@
+/* Your dashboard: how the business is doing, and what needs you today. */
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import { supabase } from "../../lib/supabase.js";
+import { useRows } from "../../lib/useRows.js";
+import { balance, total, isOverdue, daysLate, fmtDate, hours, reminderText, today, fmtDateTime } from "../../lib/money.js";
+import { RECURRING } from "../../lib/schema.js";
+import { STUDIO, STAGES } from "../../data/studio.js";
+import { C, inr, Chip, H1, H2, P, Box, T, Card } from "../../components/ui.jsx";
+import { signOut } from "../../lib/auth.jsx";
+
+const ym = (d) => d.slice(0, 7);
+const monthsBack = (n) => {
+  const out = [], d = new Date(); d.setDate(1);
+  for (let i = n - 1; i >= 0; i--) { const x = new Date(d); x.setMonth(d.getMonth() - i); out.push(x.toISOString().slice(0, 7)); }
+  return out;
+};
+
+function Stat({ label, value, note, tone }) {
+  return (
+    <Card>
+      <div className="text-xs uppercase tracking-wide" style={{ color: C.mute }}>{label}</div>
+      <div className="text-2xl font-semibold" style={{ color: tone ? C[tone] : C.deep, fontVariantNumeric: "tabular-nums" }}>{value}</div>
+      {note && <div className="text-xs mt-1" style={{ color: C.mute }}>{note}</div>}
+    </Card>
+  );
+}
+
+function Remind({ inv, project, onDone }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(reminderText(inv, project, STUDIO.email)); setCopied(true); } catch { setCopied(false); }
+    await supabase.from("invoices").update({ last_reminded_at: new Date().toISOString() }).eq("id", inv.id);
+    onDone();
+  };
+  return <button onClick={copy} className="underline text-xs" style={{ color: C.deep }}>{copied ? "Copied, send on WhatsApp" : "Copy reminder"}</button>;
+}
+
+export default function Dashboard() {
+  const projects = useRows(() => supabase.from("projects").select("id,slug,name,stage,next_meeting_at,next_meeting_note,clients(name)").order("created_at", { ascending: false }), []);
+  const inv = useRows(() => supabase.from("invoices").select("*"), []);
+  const exp = useRows(() => supabase.from("expenses").select("*"), []);
+  const time = useRows(() => supabase.from("time_entries").select("*"), []);
+  const svc = useRows(() => supabase.from("project_services").select("*"), []);
+  const req = useRows(() => supabase.from("requests").select("*").in("status", ["new", "accepted", "in_progress"]).order("created_at", { ascending: false }), []);
+  const iss = useRows(() => supabase.from("issues").select("id,project_id,title,severity,status,owner").in("status", ["open", "in_progress", "waiting_client", "blocked"]), []);
+
+  const k = useMemo(() => {
+    if (![projects, inv, exp, time, svc].every((x) => x.rows)) return null;
+    const name = Object.fromEntries(projects.rows.map((p) => [p.id, p.name]));
+    const month = ym(today()), months = monthsBack(12), y = today().slice(0, 4);
+    const paidOn = (i) => (i.status === "paid" ? i.paid_on || i.issued_on : null);
+    const cash = (i) => (i.status === "paid" ? Number(i.paid_amount ?? total(i)) : 0);
+    const paidIn = (pred) => inv.rows.filter((i) => paidOn(i) && pred(paidOn(i))).reduce((a, i) => a + cash(i), 0);
+    const mine = exp.rows.filter((e) => e.paid_by === "me");
+    const spent = (pred) => mine.filter((e) => pred(e.spent_on)).reduce((a, e) => a + Number(e.amount), 0);
+    const hrs = (pred) => time.rows.filter((t) => pred(t.started_at)).reduce((a, t) => a + hours(t), 0);
+    const since90 = new Date(Date.now() - 90 * 864e5).toISOString();
+    const open = inv.rows.filter((i) => i.status === "sent" && balance(i) > 0);
+    const overdue = open.filter(isOverdue);
+    const mrr = svc.rows.filter((s) => s.kind === "monthly" && RECURRING.includes(s.status)).reduce((a, s) => a + Number(s.price), 0);
+    const pipeline = svc.rows.filter((s) => s.status === "Proposed");
+    const per = projects.rows.map((p) => {
+      const pi = inv.rows.filter((i) => i.project_id === p.id);
+      const h = time.rows.filter((t) => t.project_id === p.id).reduce((a, t) => a + hours(t), 0);
+      const got = pi.reduce((a, i) => a + cash(i), 0);
+      const cost = mine.filter((e) => e.project_id === p.id).reduce((a, e) => a + Number(e.amount), 0);
+      return { p, billed: pi.filter((i) => i.status !== "draft" && i.status !== "void").reduce((a, i) => a + total(i), 0), got, due: pi.reduce((a, i) => a + balance(i), 0), cost, h, rate: h ? (got - cost) / h : null };
+    });
+    return {
+      name, open, overdue, mrr, per,
+      paidMonth: paidIn((d) => ym(d) === month), paidYear: paidIn((d) => d.startsWith(y)),
+      outstanding: open.reduce((a, i) => a + balance(i), 0), overdueSum: overdue.reduce((a, i) => a + balance(i), 0),
+      spentMonth: spent((d) => ym(d) === month), hrsMonth: hrs((d) => ym(d) === month),
+      rate90: (() => { const h = hrs((d) => d >= since90); const g = paidIn((d) => d >= since90.slice(0, 10)) - spent((d) => d >= since90.slice(0, 10)); return h ? g / h : null; })(),
+      pipeline: pipeline.reduce((a, s) => a + Number(s.price) * (s.kind === "monthly" ? 12 : 1), 0), pipelineN: pipeline.length,
+      openTimers: time.rows.filter((t) => !t.ended_at),
+      chart: months.map((m) => ({
+        m: m.slice(2).replace("-", "/"),
+        Invoiced: inv.rows.filter((i) => i.status !== "draft" && i.status !== "void" && ym(i.issued_on) === m).reduce((a, i) => a + total(i), 0),
+        Received: paidIn((d) => ym(d) === m),
+        Expenses: spent((d) => ym(d) === m),
+      })),
+    };
+  }, [projects.rows, inv.rows, exp.rows, time.rows, svc.rows]);
+
+  if (!k) return <P>Loading…</P>;
+  const errs = [projects, inv, exp, time, svc, req, iss].map((x) => x.error).filter(Boolean);
+  const upcoming = projects.rows.filter((p) => p.next_meeting_at && p.next_meeting_at >= new Date(Date.now() - 864e5).toISOString()).sort((a, b) => a.next_meeting_at.localeCompare(b.next_meeting_at));
+  const clientWaits = (iss.rows || []).filter((i) => i.status === "waiting_client" || i.owner === "client");
+
+  return (
+    <div>
+      <div className="flex flex-wrap justify-between items-baseline gap-2">
+        <H1>How the studio is doing</H1>
+        <div className="text-sm flex gap-4">
+          <Link to="/studio/new" style={{ color: C.deep, fontWeight: 600 }}>+ New project</Link>
+          <Link to="/studio/compare" style={{ color: C.deep }}>Compare</Link>
+          <Link to="/studio/overheads" style={{ color: C.deep }}>Overheads</Link>
+          <button className="underline" style={{ color: C.mute }} onClick={signOut}>Sign out</button>
+        </div>
+      </div>
+      {errs.length > 0 && <Box tone="bad" title="Some data did not load">{errs[0].message}</Box>}
+
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-4 mb-4">
+        <Stat label="Received this month" value={inr(k.paidMonth)} note={`${inr(k.paidYear)} this year`} />
+        <Stat label="Owed to you" value={inr(k.outstanding)} note={`${k.open.length} invoices sent`} tone={k.outstanding ? "warn" : null} />
+        <Stat label="Overdue" value={inr(k.overdueSum)} note={`${k.overdue.length} invoices`} tone={k.overdue.length ? "bad" : "good"} />
+        <Stat label="Monthly recurring" value={inr(k.mrr)} note="agreed or live retainers" />
+        <Stat label="Hours this month" value={k.hrsMonth.toFixed(1)} note={k.openTimers.length ? `${k.openTimers.length} timer(s) without an end` : "all timers closed"} tone={k.openTimers.length ? "warn" : null} />
+        <Stat label="Earned per hour, 90 days" value={k.rate90 == null ? "–" : inr(k.rate90)} note={`received minus your expenses ÷ hours. Target ${inr(STUDIO.hourly)}`} tone={k.rate90 == null ? null : k.rate90 >= STUDIO.hourly ? "good" : "warn"} />
+        <Stat label="Your expenses this month" value={inr(k.spentMonth)} />
+        <Stat label="Proposed, not yet agreed" value={inr(k.pipeline)} note={`${k.pipelineN} services, monthly ones × 12`} />
+      </div>
+
+      <H2>Needs you</H2>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <div className="font-semibold text-sm mb-2" style={{ color: C.deep }}>Payment reminders</div>
+          {!k.open.length ? <div className="text-sm" style={{ color: C.mute }}>Nothing owed.</div> : (
+            <ul className="text-sm grid gap-2">
+              {[...k.open].sort((a, b) => a.due_on.localeCompare(b.due_on)).map((i) => (
+                <li key={i.id} className="flex flex-wrap justify-between gap-2">
+                  <span>{k.name[i.project_id]} · {i.number} · {inr(balance(i))} {isOverdue(i) ? <Chip tone="bad">{daysLate(i)} days late</Chip> : <Chip tone="warn">due {fmtDate(i.due_on)}</Chip>}
+                    {i.last_reminded_at && <span className="text-xs" style={{ color: C.mute }}> reminded {fmtDate(i.last_reminded_at.slice(0, 10))}</span>}</span>
+                  <Remind inv={i} project={k.name[i.project_id]} onDone={inv.reload} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+        <Card>
+          <div className="font-semibold text-sm mb-2" style={{ color: C.deep }}>Client requests</div>
+          {!(req.rows || []).length ? <div className="text-sm" style={{ color: C.mute }}>No open requests.</div> : (
+            <ul className="text-sm grid gap-2">
+              {req.rows.map((r) => (
+                <li key={r.id}>
+                  <Chip tone={r.status === "new" ? "warn" : "info"}>{r.status}</Chip> <b>{k.name[r.project_id]}</b>: {r.details.slice(0, 90)}
+                  <span className="text-xs" style={{ color: C.mute }}> · {r.priority} · {fmtDate(r.created_at.slice(0, 10))}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+        <Card>
+          <div className="font-semibold text-sm mb-2" style={{ color: C.deep }}>Coming up</div>
+          {!upcoming.length ? <div className="text-sm" style={{ color: C.mute }}>No meetings set.</div> : (
+            <ul className="text-sm grid gap-2">{upcoming.map((p) => <li key={p.id}><b>{fmtDateTime(p.next_meeting_at, { dateStyle: "medium", timeStyle: "short" })}</b> · {p.name}: {p.next_meeting_note}</li>)}</ul>
+          )}
+        </Card>
+        <Card>
+          <div className="font-semibold text-sm mb-2" style={{ color: C.deep }}>Open issues</div>
+          <div className="text-sm">
+            {(iss.rows || []).length} open across projects · {(iss.rows || []).filter((i) => ["critical", "high"].includes(i.severity)).length} critical or high · {clientWaits.length} waiting on clients
+          </div>
+        </Card>
+      </div>
+
+      <H2>Money, last 12 months</H2>
+      <div style={{ width: "100%", height: 260 }}>
+        <ResponsiveContainer>
+          <BarChart data={k.chart} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke={C.rule} vertical={false} />
+            <XAxis dataKey="m" tick={{ fontSize: 11, fill: C.mute }} />
+            <YAxis tick={{ fontSize: 11, fill: C.mute }} tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : v)} />
+            <Tooltip formatter={(v, n) => [inr(v), n]} />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Bar dataKey="Invoiced" fill={C.info} radius={[2, 2, 0, 0]} />
+            <Bar dataKey="Received" fill={C.good} radius={[2, 2, 0, 0]} />
+            <Bar dataKey="Expenses" fill={C.warn} radius={[2, 2, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <H2>Projects</H2>
+      <T head={["Project", "Client", "Stage", "Billed", "Received", "Owed", "Hours", "Per hour"]} right={[3, 4, 5, 6, 7]}
+        rows={k.per.map(({ p, billed, got, due, h, rate }) => [
+          <Link key={p.id} to={`/studio/p/${p.slug}`} className="font-semibold" style={{ color: C.deep }}>{p.name}</Link>,
+          p.clients?.name || "", (STAGES.find(([id]) => id === p.stage) || [, p.stage])[1],
+          inr(billed), inr(got), due ? <span key="d" style={{ color: C.warn }}>{inr(due)}</span> : "–", h.toFixed(1), rate == null ? "–" : inr(rate),
+        ])} />
+      {!projects.rows.length && <P style={{ color: C.mute }}>No projects yet. <Link to="/studio/new" className="underline">Create the first one</Link>.</P>}
+    </div>
+  );
+}

@@ -1,62 +1,85 @@
 # Client Projects Portal
 
-One place to run every client project: what is being worked on, findings, pricing, onboarding, requests and handover.
-Each client gets their own link. You get a studio view of everything.
+Your studio website, client logins and business dashboard in one app.
+
+- **Clients** sign in with an email link and see only their own projects: updates, issues, money owed,
+  files, requests, numbers, and any custom report (such as the Tailbone Google Ads audit).
+- **You** get a dashboard: money received and owed, overdue reminders, monthly recurring income,
+  hours, earned per hour, open requests and issues, plus an editor for every project.
+
+Built with React (Vite), Supabase (database, login, file storage) and hosted on Vercel.
 
 ## Pages
 
 | URL | Who | What |
 | --- | --- | --- |
-| `/` | Anyone | Services and how a project runs |
-| `/services` | Anyone | Prices and payment terms |
-| `/process` | Clients | Onboarding, weekly rhythm, handover, feedback form |
-| `/request` | Clients | Send a new request (`?project=Name` pre-fills it) |
-| `/p/<slug>` | One client | Their portal: overview, meeting brief, findings, plan and pricing, onboarding, requests, handover |
-| `/studio` | You | All projects, with internal notes and time logs (`/studio/p/<slug>`) |
+| `/`, `/services`, `/process` | Anyone | Services, prices, onboarding and handover |
+| `/login` | Anyone | Email sign-in link |
+| `/portal`, `/portal/p/<slug>` | Clients | Their projects |
+| `/studio` | You | Dashboard |
+| `/studio/p/<slug>` | You | Edit a project: overview, updates, issues, money, time, files, requests, numbers, report, client access |
+| `/studio/new`, `/studio/compare`, `/studio/overheads` | You | New project, compare projects and numbers, studio running costs |
 
-## Where to edit things
+## Who sees what
 
-- **Prices, payment terms, onboarding and handover steps:** `src/data/studio.js`
-- **Projects** (services, status, timeline, onboarding checklist, requests): `src/data/projects.js`. Everything
-  in it can be shown to the client.
-- **Private notes and time logs:** `src/data/projects.internal.js`, used only by `/studio`
-- **Tailbone findings** (from the Google Ads audit): `src/projects/tailbone/audit.jsx`. Issue status after the
-  18 Oct rebuild is in `ISSUE_STATUS`.
-- **Tailbone meeting brief, 19 Oct:** `src/projects/tailbone/meeting.jsx`
+Enforced by the database (row level security), not by the website:
 
-To add a client, add an object to `PROJECTS` and send them `/p/<slug>`.
+- You (the email in `settings.owner_email`) see and edit everything.
+- A client sees a project only if their email is in its **Client access** tab, and within it only rows
+  with "Client can see this" switched on. Draft invoices, time logs and private notes are never sent to them.
+- Clients can add requests and upload files to their own projects. Nothing else.
 
-## Run it
+Tested in `supabase/tests/10_access_rules.sql`.
+
+One limit: report code (like the Tailbone audit) is part of the website's code, which every visitor
+downloads. Private analysis never goes in report code. The Tailbone "Conversion check" tab and speaker
+notes are compiled out of the live site and appear only in `npm run dev`. Use private updates for notes.
+
+## Set up (one time)
+
+### 1. Database (Supabase)
+
+1. Create a Supabase project (free plan allows 2 active projects; pause one if both are used).
+2. SQL Editor → run `supabase/migrations/0001_portal.sql`, then `supabase/seed/tailbone.sql`.
+3. Authentication → URL Configuration: set **Site URL** to your live address (for example
+   `https://your-site.vercel.app`) and add `http://localhost:5173/**` and `https://your-site.vercel.app/**`
+   to **Redirect URLs**.
+4. Project Settings → API: copy the **Project URL** and the **anon / publishable key**.
+
+### 2. Website (Vercel)
+
+1. vercel.com → Add New → Project → import `join2aj/projects`.
+2. Environment Variables: `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from step 1.4.
+3. Deploy. `vercel.json` already handles routing.
+
+### 3. First sign-in
+
+Open `/login` on the live site and sign in with `join2ajkumar@gmail.com`. That email is the owner,
+so you land on the dashboard.
+
+To give a client access: open the project → **Client access** → Add their email → send them the `/login` link.
+
+## Day to day
+
+- **Update a client:** Updates tab. Switch off "Client can see this" for private notes.
+- **Bill:** Money → Add invoice (starts as a hidden draft) → **Send** → **Mark paid** when it arrives.
+  Sent invoices show on the client's page. Overdue ones show a red banner there, and a **Copy reminder**
+  message on your dashboard for WhatsApp.
+- **Track time:** Time tab → Start timer / Stop. Your dashboard turns hours into earned per hour.
+- **Numbers for any project:** Numbers tab → paste `metric, 2026-10, value, unit, source` lines from a
+  spreadsheet. Use the same metric names across projects so `/studio/compare` lines them up.
+- **Prices:** `src/data/studio.js` sets the public price list and service defaults. Each project stores its own agreed fee.
+
+## Develop
 
 ```bash
+cp .env.example .env.local   # fill in the two Supabase values
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # output in dist/
+npm run dev                  # http://localhost:5173
+npm run build
+node scripts/make-seed.mjs   # rebuild the Tailbone seed from the audit module
+npm run build:share          # older one-page snapshot of the Tailbone client page (no database)
 ```
 
-## Share one client's page without deploying
-
-```bash
-npm run build:share   # dist-share/share.html: client pages only, opens on the Tailbone project
-```
-
-This build leaves out the studio pages, `projects.internal.js`, the Conversion check tab and the
-speaker notes (the meeting opening lines and the draft owner message). The request form shows the
-text for the client to copy and send, because there is no server behind a single file.
-To open on a different project, change `START` in `src/share.jsx`.
-
-## Deploy (Netlify)
-
-Connect this repo in Netlify. `netlify.toml` already sets the build, SPA routing and `noindex`.
-The request and feedback forms post to Netlify Forms: turn on email notifications under
-Site settings > Forms. When the site runs anywhere else, the forms open an email to you instead.
-
-## Privacy: read before sharing
-
-This is a static site. Client pages and `/studio` are **unlisted, not private**: anyone with the URL can read them,
-and the code ships every project's data to the browser. Before you share a link:
-
-1. Turn on Netlify site password protection, or
-2. Move projects and requests into a database with login (Supabase is the planned next step).
-
-Never put passwords or access tokens in `src/data`.
+Not built yet: automatic reminder emails (needs an email service such as Resend and a scheduled
+Supabase function), online payment links, and per-client file size quotas.

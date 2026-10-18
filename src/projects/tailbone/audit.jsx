@@ -674,7 +674,7 @@ function Framework() {
         <b>Check:</b> In 14 days, reported conversions should be close to the real call log.
       </Box>
 
-      {import.meta.env.VITE_SHARE !== "1" && (<StudioOnly>
+      {import.meta.env.DEV && (<StudioOnly>
       <H2>Five sentences for Dr. Rajveer</H2>
       <OL items={[
         "“Your ads are working, but we can’t prove how well, because the account counts things that may not be enquiries.”",
@@ -997,7 +997,7 @@ function OwnerBrief() {
         ["18 Nov (day 30)", "Decision 1: raise, hold or cut the budget"],
       ]} />
 
-      {import.meta.env.VITE_SHARE !== "1" && (<StudioOnly>
+      {import.meta.env.DEV && (<StudioOnly>
       <H2>Message to send the owner</H2>
       <div className="p-4 mb-4" style={{ background: C.card, border: `1px solid ${C.rule}`, borderRadius: 4 }}>
         <pre className="text-sm" style={{ whiteSpace: "pre-wrap", fontFamily: FB, color: C.ink, lineHeight: 1.6, margin: 0 }}>{msg}</pre>

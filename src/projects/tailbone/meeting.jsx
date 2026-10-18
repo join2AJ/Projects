@@ -83,7 +83,7 @@ export function MeetingBrief() {
         ["7", "Approval of the monthly cap and the fees in writing (WhatsApp is fine)", "Protects both sides"],
       ]} />
 
-      {import.meta.env.VITE_SHARE !== "1" && (<StudioOnly>
+      {import.meta.env.DEV && (<StudioOnly>
       <H2>Five sentences to open with</H2>
       <OL items={[
         "“The old ads were spending most of the money on cheap clicks and views that we cannot link to patients.”",
