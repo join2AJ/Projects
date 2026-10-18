@@ -7,7 +7,9 @@ import { C, H1, P, Box } from "../components/ui.jsx";
 export default function Login() {
   const { session, profile, loading } = useAuth();
   const [q] = useSearchParams();
-  const next = q.get("next") || "/portal";
+  // Only same-site paths: blocks open redirects like ?next=//evil.com or ?next=/\evil.com
+  const raw = q.get("next") || "";
+  const next = /^\/(?![\/\\])[\w\-/]*$/.test(raw) ? raw : "/portal";
   const [email, setEmail] = useState("");
   const [state, setState] = useState(["idle"]);
 
