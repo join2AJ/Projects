@@ -1,4 +1,10 @@
 /* Shared design tokens and building blocks (taken from the Tailbone audit so every page matches). */
+import { createContext, useContext } from "react";
+
+/* Who is looking: "client" (default, the shared link) or "studio" (you). Speaker notes render only for the studio. */
+export const Audience = createContext("client");
+export const useStudio = () => useContext(Audience) === "studio";
+export const StudioOnly = ({ children }) => (useStudio() ? children : null);
 
 export const C = {
   bg: "#F2F5F4", card: "#FFFFFF", ink: "#15222C", mute: "#566670", rule: "#D3DBDE",

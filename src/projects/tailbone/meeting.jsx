@@ -1,11 +1,12 @@
 /* Meeting brief for Dr Rajveer, Mon 19 Oct 2026: are we on track, and why the two big decisions were right. */
-import { C, inr, Chip, H1, H2, P, Box, T, OL, Status } from "../../components/ui.jsx";
+import { C, inr, Chip, H1, H2, P, Box, T, OL, Status, StudioOnly, useStudio } from "../../components/ui.jsx";
 import { CAMP, TOTAL_COST, ALL, LEDGER, LEDGER_TOTAL, GST, DAYS } from "./audit.jsx";
 
 const DAILY = 200;
 const CEILING = 10000;
 
 export function MeetingBrief() {
+  const studio = useStudio();
   const month = DAILY * DAYS * GST;
   const maxDaily = Math.floor(CEILING / (DAYS * GST));
   const l12 = ALL.slice(-12).reduce((a, b) => a + b, 0) / 12;
@@ -36,7 +37,7 @@ export function MeetingBrief() {
           `The most promising: ${cp4.clicks} clicks at ${cp4.cpc} and ${cp4.conv} conversions, but only 3 live days and policy-limited assets.`,
           <Chip key="4" tone="warn">Paused for clean measurement</Chip>],
       ]} />
-      <Box tone="info" title="Be straight about PMax-4">
+      <Box tone="info" title={studio ? "Be straight about PMax-4" : "About PMax-4"}>
         PMax-4 was not failing. It was paused so that one clean campaign runs alone, every rupee can be traced to calls, and the monthly cap is easy to hold.
         It is the first candidate to bring back after 30 days of Search data and working call tracking (decision on 18 Nov).
       </Box>
@@ -51,7 +52,7 @@ export function MeetingBrief() {
         ["Who sees the ads", "Google Search, Delhi NCR", "Only people typing tailbone-related searches near the Delhi clinic. No Display, no Search Partners, no video."],
       ]} />
 
-      <H2>Honest risks to raise in the meeting</H2>
+      <H2>{studio ? "Honest risks to raise in the meeting" : "Risks and open points"}</H2>
       <T head={["Risk", "What we do", "Status"]} rows={[
         ["The ad sends people to tailbonetreatment.com, which still lists Bangalore and says “India’s No. 1”", "Doctor’s web person removes those lines, or we point the ad at the new site. Must happen before launch.", <Status key="1" s="Before launch" />],
         ["Only calls from the ad’s own call button are counted (60 s or more)", "Website bookings, WhatsApp and calls dialled from the page are not tracked yet. Ask how each new patient found the clinic until website tracking exists.", <Status key="2" s="Open" />],
@@ -67,11 +68,11 @@ export function MeetingBrief() {
         "5 min: what we found (Right vs wrong tab). Spend went to cheap clicks and views, and the numbers could not be trusted.",
         "5 min: what we did on 18 Oct. Old ads paused, Search campaign built, monthly cap set.",
         "5 min: the risks above, and the website fix needed before launch.",
-        "10 min: what is needed from the doctor (list below), and agree the scope and fees (Plan and pricing tab).",
+        "10 min: what is needed from you (list below), and agree the scope and fees (Plan and pricing tab).",
         "5 min: dates. 21 Oct search review, 2 Nov first review, 18 Nov budget decision. Weekly Friday update.",
       ]} />
 
-      <H2>What to ask for</H2>
+      <H2>{studio ? "What to ask for" : "What we need from you"}</H2>
       <T head={["#", "Ask", "Why"]} rows={[
         ["1", "Remove Bangalore and “No. 1” from tailbonetreatment.com, or approve pointing the ad at the new site", "Launch blocker and policy risk"],
         ["2", "Load ₹3,500 on 19 Oct before 10:00, nothing more in October", "October stays near ₹8,770 incl. GST"],
@@ -82,6 +83,7 @@ export function MeetingBrief() {
         ["7", "Approval of the monthly cap and the fees in writing (WhatsApp is fine)", "Protects both sides"],
       ]} />
 
+      {import.meta.env.VITE_SHARE !== "1" && (<StudioOnly>
       <H2>Five sentences to open with</H2>
       <OL items={[
         "“The old ads were spending most of the money on cheap clicks and views that we cannot link to patients.”",
@@ -90,6 +92,7 @@ export function MeetingBrief() {
         "“Before it starts, the old website must stop mentioning Bangalore.”",
         "“I will send you a one-page update every Friday, and I will not change the budget without your approval.”",
       ]} />
+      </StudioOnly>)}
       <P style={{ color: C.mute }}>30-day figures (17 Sep – 16 Oct, ex-GST): {inr(TOTAL_COST)} across the three campaigns in the report. Ledger figures are 1 Aug – 17 Oct, net of credits.</P>
     </div>
   );

@@ -1,7 +1,7 @@
 /*
  * Client forms. On Netlify, submissions land in the site's Forms tab (and your email, if you turn on
  * notifications). Each form also needs its hidden twin in index.html so Netlify can detect it.
- * Anywhere else, the form falls back to opening an email.
+ * Anywhere else, the form shows the filled-in text for the client to copy and send.
  */
 import { useState } from "react";
 import { C, Box } from "./ui.jsx";
@@ -9,21 +9,24 @@ import { STUDIO } from "../data/studio.js";
 
 const encode = (data) => new URLSearchParams(data).toString();
 
+// In the share build (a single page with no server), forms skip Netlify and show the text to copy and send.
+const SHARE = import.meta.env.VITE_SHARE === "1";
+
 function useNetlifyForm(name) {
-  const [state, setState] = useState("idle");
+  const [state, setState] = useState({ s: "idle" });
   const submit = async (e) => {
     e.preventDefault();
     const data = { "form-name": name, ...Object.fromEntries(new FormData(e.target)) };
-    setState("sending");
+    const text = Object.entries(data).filter(([k, v]) => !["form-name", "bot-field"].includes(k) && v).map(([k, v]) => `${k}: ${v}`).join("\n");
+    if (SHARE) return setState({ s: "copy", text });
+    setState({ s: "sending" });
     try {
       const r = await fetch("/", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: encode(data) });
       if (!r.ok) throw new Error(r.status);
-      setState("sent");
+      setState({ s: "sent" });
       e.target.reset();
     } catch {
-      const body = Object.entries(data).filter(([k]) => k !== "form-name").map(([k, v]) => `${k}: ${v}`).join("\n");
-      window.location.href = `mailto:${STUDIO.email}?subject=${encodeURIComponent(`[${name}] ${data.project || ""}`)}&body=${encodeURIComponent(body)}`;
-      setState("mail");
+      setState({ s: "copy", text });
     }
   };
   return [state, submit];
@@ -36,9 +39,19 @@ const Label = ({ text, children }) => (
 );
 
 function Sent({ state }) {
-  if (state === "sent") return <Box tone="good" title="Received">Thank you. I reply the same working day.</Box>;
-  if (state === "mail") return <Box tone="info" title="Opening your email">If nothing opened, write to {STUDIO.email}.</Box>;
-  return null;
+  const [copied, setCopied] = useState(false);
+  if (state.s === "sent") return <Box tone="good" title="Received">Thank you. I reply the same working day.</Box>;
+  if (state.s !== "copy") return null;
+  const copy = () => navigator.clipboard?.writeText(state.text).then(() => setCopied(true), () => setCopied(false));
+  return (
+    <Box tone="info" title="Almost done: send this to me">
+      Copy the text below and send it on WhatsApp or by email to <b style={{ userSelect: "all" }}>{STUDIO.email}</b>.
+      <textarea readOnly value={state.text} rows={6} className={field} style={fieldStyle} onFocus={(e) => e.target.select()} />
+      <button type="button" onClick={copy} className="mt-2 px-3 py-1 rounded text-sm" style={{ border: `1px solid ${C.deep}`, color: C.deep, background: "#fff" }}>
+        {copied ? "Copied" : "Copy text"}
+      </button>
+    </Box>
+  );
 }
 
 export function RequestForm({ project = "" }) {
@@ -61,8 +74,8 @@ export function RequestForm({ project = "" }) {
       </Label>
       <Label text="What would you like me to work on?"><textarea name="details" rows={5} required className={field} style={fieldStyle} /></Label>
       <Label text="Link to a file, page or screenshot (optional)"><input name="link" type="url" className={field} style={fieldStyle} /></Label>
-      <button type="submit" disabled={state === "sending"} className="px-4 py-2 rounded text-sm font-semibold mb-4" style={{ background: C.deep, color: "#fff" }}>
-        {state === "sending" ? "Sending…" : "Send request"}
+      <button type="submit" disabled={state.s === "sending"} className="px-4 py-2 rounded text-sm font-semibold mb-4" style={{ background: C.deep, color: "#fff" }}>
+        {state.s === "sending" ? "Sending…" : "Send request"}
       </button>
       <Sent state={state} />
     </form>
@@ -82,8 +95,8 @@ export function FeedbackForm({ project = "" }) {
       <Label text="What worked well?"><textarea name="worked" rows={3} className={field} style={fieldStyle} /></Label>
       <Label text="What should I do better?"><textarea name="better" rows={3} className={field} style={fieldStyle} /></Label>
       <Label text="May I quote you as a testimonial? If yes, write it here"><textarea name="testimonial" rows={3} className={field} style={fieldStyle} /></Label>
-      <button type="submit" disabled={state === "sending"} className="px-4 py-2 rounded text-sm font-semibold mb-4" style={{ background: C.deep, color: "#fff" }}>
-        {state === "sending" ? "Sending…" : "Send feedback"}
+      <button type="submit" disabled={state.s === "sending"} className="px-4 py-2 rounded text-sm font-semibold mb-4" style={{ background: C.deep, color: "#fff" }}>
+        {state.s === "sending" ? "Sending…" : "Send feedback"}
       </button>
       <Sent state={state} />
     </form>

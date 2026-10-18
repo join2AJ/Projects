@@ -8,7 +8,7 @@ import {
   ResponsiveContainer, ComposedChart, BarChart, Bar, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, Cell,
 } from "recharts";
-import { C, FH, FB, inr, inr2, Chip, H2, P, Box, T, Num, OL, Status } from "../../components/ui.jsx";
+import { C, FH, FB, inr, inr2, Chip, H2, P, Box, T, Num, OL, Status, StudioOnly } from "../../components/ui.jsx";
 
 export const GST = 1.18;
 export const DAYS = 30.4; // Google’s monthly charging limit = 30.4 × daily budget
@@ -199,7 +199,7 @@ const OPTIONS = [
     ["Option 6", "Geography: Presence only, clinic cities only. Restore Karnataka/Bangalore if that clinic is live."],
     ["Option 7", "Policy: remove “cure”, “Rated”, “proven”, “lasting relief”. Fix the disapproved sitelink and logo. Delete zero-impression duplicate sitelinks."],
     ["Option 8", "Budgets: all old campaigns stay paused. Search runs alone at ₹200/day with a ₹40 click cap, and the account never exceeds ₹10,000 a month incl. GST."],
-    ["Option 12", "Integrity check: ask who created the conversion actions, review who has access, and run the three-way match on the Conversion check tab."],
+    ["Option 12", "Integrity check: ask who created the conversion actions, review who has access, and match the Ads conversions against the clinic’s call and WhatsApp log."],
     ["Option 13", "Conversion clean-up: the new campaign uses only the Phone call leads goal. Leave Calls from ads as is (One conversion, 60 seconds). Set SPH and Call ads 2025 to Secondary if the screen allows. Details on the Conversion audit tab."],
   ] },
   { when: "Next 30 days", items: [
@@ -674,6 +674,7 @@ function Framework() {
         <b>Check:</b> In 14 days, reported conversions should be close to the real call log.
       </Box>
 
+      {import.meta.env.VITE_SHARE !== "1" && (<StudioOnly>
       <H2>Five sentences for Dr. Rajveer</H2>
       <OL items={[
         "“Your ads are working, but we can’t prove how well, because the account counts things that may not be enquiries.”",
@@ -682,6 +683,8 @@ function Framework() {
         "“I need three things from you: revenue per new patient, your call and WhatsApp log, and permission to pause the YouTube campaign.”",
         "“I’ll send a one-page update every Friday and won’t change budgets without your approval.”",
       ]} />
+
+      </StudioOnly>)}
 
       <H2>Ground rules when managing someone else’s money</H2>
       <T head={["Rule", "Why"]} rows={[
@@ -994,10 +997,12 @@ function OwnerBrief() {
         ["18 Nov (day 30)", "Decision 1: raise, hold or cut the budget"],
       ]} />
 
+      {import.meta.env.VITE_SHARE !== "1" && (<StudioOnly>
       <H2>Message to send the owner</H2>
       <div className="p-4 mb-4" style={{ background: C.card, border: `1px solid ${C.rule}`, borderRadius: 4 }}>
         <pre className="text-sm" style={{ whiteSpace: "pre-wrap", fontFamily: FB, color: C.ink, lineHeight: 1.6, margin: 0 }}>{msg}</pre>
       </div>
+      </StudioOnly>)}
     </div>
   );
 }

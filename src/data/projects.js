@@ -1,6 +1,6 @@
 /*
  * All client projects. Add a new object to PROJECTS to give a client their own portal page at /p/<slug>.
- * Fields marked "internal" are shown only in the studio view (/studio), never on the client page.
+ * Everything here can be shown to the client. Private notes and time logs go in projects.internal.js.
  */
 
 export const PROJECTS = [
@@ -53,19 +53,6 @@ export const PROJECTS = [
       ["17 Oct", "Website maintenance, long term", "Proposed"],
       ["17 Oct", "SEO, long term", "Proposed"],
     ],
-
-    internal: {
-      repo: "Join2aj/tailbone",
-      time: [
-        // [start, end, task]. Fill in end times; hours are worked out on the studio page.
-        ["2026-10-17T15:00", null, "Ads account review, billing, conversion audit, findings, new Search campaign"],
-      ],
-      notes: [
-        "Every change in the last 30 days was made from rajveer.pt@gmail.com. Move to Standard access before more changes.",
-        "Ask who “SPH” is (New Phone Call Lead By SPH) without suggesting blame. See the Conversion check tab.",
-        "Website redesign is priced as one fee even though work started earlier in the tailbone repo.",
-      ],
-    },
   },
 ];
 

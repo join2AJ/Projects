@@ -7,7 +7,8 @@ import Home from "./pages/Home.jsx";
 import Services from "./pages/Services.jsx";
 import Process from "./pages/Process.jsx";
 import Request from "./pages/Request.jsx";
-import Project, { Studio } from "./pages/Project.jsx";
+import Project from "./pages/Project.jsx";
+import Studio, { StudioProject } from "./pages/Studio.jsx";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -20,7 +21,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="request" element={<Request />} />
           <Route path="p/:slug" element={<Project />} />
           <Route path="studio" element={<Studio />} />
-          <Route path="studio/p/:slug" element={<Project internal />} />
+          <Route path="studio/p/:slug" element={<StudioProject />} />
           <Route path="*" element={<Home />} />
         </Route>
       </Routes>

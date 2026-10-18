@@ -17,7 +17,9 @@ Each client gets their own link. You get a studio view of everything.
 ## Where to edit things
 
 - **Prices, payment terms, onboarding and handover steps:** `src/data/studio.js`
-- **Projects** (services, status, timeline, onboarding checklist, requests, time log): `src/data/projects.js`
+- **Projects** (services, status, timeline, onboarding checklist, requests): `src/data/projects.js`. Everything
+  in it can be shown to the client.
+- **Private notes and time logs:** `src/data/projects.internal.js`, used only by `/studio`
 - **Tailbone findings** (from the Google Ads audit): `src/projects/tailbone/audit.jsx`. Issue status after the
   18 Oct rebuild is in `ISSUE_STATUS`.
 - **Tailbone meeting brief, 19 Oct:** `src/projects/tailbone/meeting.jsx`
@@ -31,6 +33,17 @@ npm install
 npm run dev      # http://localhost:5173
 npm run build    # output in dist/
 ```
+
+## Share one client's page without deploying
+
+```bash
+npm run build:share   # dist-share/share.html: client pages only, opens on the Tailbone project
+```
+
+This build leaves out the studio pages, `projects.internal.js`, the Conversion check tab and the
+speaker notes (the meeting opening lines and the draft owner message). The request form shows the
+text for the client to copy and send, because there is no server behind a single file.
+To open on a different project, change `START` in `src/share.jsx`.
 
 ## Deploy (Netlify)
 

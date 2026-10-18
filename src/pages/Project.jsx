@@ -1,18 +1,18 @@
 /*
- * A client's project portal. The same page serves the studio view (internal = true), which adds
- * internal-only findings tabs, notes and the time log.
+ * A client's project portal. The studio view (pages/Studio.jsx) reuses it and passes in its private
+ * extras, so nothing private is imported here or bundled into the client share build.
  */
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { C, inr, H1, H2, P, Box, T, Tabs, Pills, Status, Card } from "../components/ui.jsx";
+import { C, H1, H2, P, Box, T, Tabs, Pills, Status } from "../components/ui.jsx";
 import { STAGES, SERVICES, OFFBOARDING } from "../data/studio.js";
-import { PROJECTS, findProject } from "../data/projects.js";
+import { findProject } from "../data/projects.js";
 import Quote from "../components/Quote.jsx";
 import { RequestForm, FeedbackForm } from "../components/forms.jsx";
 import * as tailbone from "../projects/tailbone/audit.jsx";
 import { MeetingBrief } from "../projects/tailbone/meeting.jsx";
 
-/* Findings per project: [id, label, component, internalOnly]. */
+/* Findings per project: [id, label, component]. */
 const FINDINGS = {
   tailbone: {
     meeting: MeetingBrief,
@@ -30,7 +30,6 @@ const FINDINGS = {
       ["actions", "Action plan", tailbone.Actions],
       ["basics", "Google Ads basics", tailbone.Basics],
       ["framework", "How we check", tailbone.Framework],
-      ["conv", "Conversion check", tailbone.ConvCheck, true],
     ],
   },
 };
@@ -62,8 +61,8 @@ function Overview({ p }) {
   );
 }
 
-function Findings({ f, internal }) {
-  const tabs = f.tabs.filter((t) => internal || !t[3]);
+function Findings({ f, extra = [] }) {
+  const tabs = [...f.tabs, ...extra];
   const [tab, setTab] = useState(tabs[0][0]);
   const Active = tabs.find((t) => t[0] === tab)[2];
   return (
@@ -109,26 +108,8 @@ function Handover({ p }) {
   );
 }
 
-const hours = ([a, b]) => (b ? (new Date(b) - new Date(a)) / 36e5 : null);
-
-function Internal({ p }) {
-  const logged = p.internal.time.map(hours).filter((h) => h != null).reduce((a, b) => a + b, 0);
-  return (
-    <div>
-      <Box tone="warn" title="Studio view">Only you should see this tab. The client link is /p/{p.slug}.</Box>
-      <H2>Notes</H2>
-      <ul className="text-sm pl-5 mb-4" style={{ listStyle: "disc", lineHeight: 1.7 }}>{p.internal.notes.map((n) => <li key={n}>{n}</li>)}</ul>
-      <H2>Time log</H2>
-      <T head={["Start", "End", "Hours", "Task"]} right={[2]} rows={p.internal.time.map((r) => [
-        r[0].replace("T", " "), r[1] ? r[1].replace("T", " ") : <Status key="o" s="Open" />, hours(r) != null ? hours(r).toFixed(1) : "–", r[2],
-      ])} />
-      <P style={{ color: C.mute }}>Logged so far: {logged.toFixed(1)} h. Fill in end times in src/data/projects.js. Fixed fees do not depend on hours, but the log shows whether a price was right.</P>
-      {p.internal.repo && <P>Related repo: {p.internal.repo}</P>}
-    </div>
-  );
-}
-
-export default function Project({ internal = false }) {
+/* studio = { findings: {key: [[id, label, Component]]}, Tab: Component } adds private tabs. */
+export default function Project({ studio }) {
   const { slug } = useParams();
   const p = findProject(slug);
   const f = p && FINDINGS[p.findings];
@@ -140,51 +121,23 @@ export default function Project({ internal = false }) {
     ["onboarding", "Onboarding"],
     ["requests", "Requests"],
     ["handover", "Handover"],
-    ...(internal ? [["internal", "Internal"]] : []),
+    ...(studio ? [["internal", "Internal"]] : []),
   ];
   const [tab, setTab] = useState("overview");
   if (!p) return <P>Project not found. Check the link you were sent.</P>;
   const Meeting = f?.meeting;
   return (
     <div>
-      <div className="text-sm mb-1" style={{ color: C.mute }}>{internal ? <Link to="/studio" style={{ color: C.deep }}>← All projects</Link> : "Client project page"}</div>
+      <div className="text-sm mb-1" style={{ color: C.mute }}>{studio ? <Link to="/studio" style={{ color: C.deep }}>← All projects</Link> : "Client project page"}</div>
       <Tabs label="Project sections" tabs={tabs} value={tab} onChange={setTab} />
       {tab === "overview" && <Overview p={p} />}
       {tab === "meeting" && <Meeting />}
-      {tab === "findings" && <Findings f={f} internal={internal} />}
+      {tab === "findings" && <Findings f={f} extra={studio?.findings?.[p.findings]} />}
       {tab === "pricing" && <Quote project={p} adSpendMonthly={f?.adSpendMonthly || 0} />}
       {tab === "onboarding" && <Onboarding p={p} />}
       {tab === "requests" && <Requests p={p} />}
       {tab === "handover" && <Handover p={p} />}
-      {tab === "internal" && <Internal p={p} />}
-    </div>
-  );
-}
-
-export function Studio() {
-  return (
-    <div>
-      <H1>All projects</H1>
-      <Box tone="warn" title="Not password-protected">This page is unlisted, not private. Protect it before sharing the site (see README).</Box>
-      <div className="grid gap-3">
-        {PROJECTS.map((p) => {
-          const monthly = p.services.filter((s) => SERVICES[s.id].kind === "monthly").reduce((a, s) => a + SERVICES[s.id].price, 0);
-          const waiting = p.onboarding.filter(([, s]) => s === "Needs client").length;
-          return (
-            <Card key={p.slug}>
-              <div className="flex flex-wrap justify-between gap-2 items-baseline">
-                <Link to={`/studio/p/${p.slug}`} className="font-semibold" style={{ color: C.deep }}>{p.name}</Link>
-                <span className="text-xs" style={{ color: C.mute }}>{p.client.name} · stage: {STAGES.find(([id]) => id === p.stage)[1]}</span>
-              </div>
-              <div className="text-sm mt-1" style={{ color: C.mute }}>
-                {p.services.length} services · {inr(monthly)} / month if all monthly services are agreed · {waiting} items waiting on the client
-              </div>
-              {p.nextMeeting && <div className="text-sm mt-1">Next: {p.nextMeeting.when}, {p.nextMeeting.what}</div>}
-              <div className="text-xs mt-2" style={{ color: C.mute }}>Client link: /p/{p.slug}</div>
-            </Card>
-          );
-        })}
-      </div>
+      {tab === "internal" && <studio.Tab p={p} />}
     </div>
   );
 }
