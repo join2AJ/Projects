@@ -19,6 +19,7 @@ Only `/login` is public. Everything else needs a signed-in user.
 | `/portal`, `/portal/p/<slug>` | Clients | Their projects, including the **Decisions** checklist (answer Yes / No / Other) |
 | `/services`, `/process`, `/account` | Signed in | Prices, how we work, change password |
 | `/studio` | Admin | Dashboard, including updates waiting for approval |
+| `/studio/pricing` | Admin | Price list: standard price, market range, why this price (clients see these), what changes the price and talking tips (private) |
 | `/studio/users` | Admin | People (create, edit, disable, delete, reset password, projects) and Clinics |
 | `/studio/p/<slug>` | Admin | Edit a project: overview, updates, issues, money, time, files, requests, numbers, report, access |
 | `/studio/new`, `/studio/compare`, `/studio/overheads` | Admin | New project, compare, studio running costs |
@@ -46,7 +47,8 @@ notes are compiled out of the live site and appear only in `npm run dev`. Use pr
 ### 1. Database (Supabase)
 
 1. Create a Supabase project (free plan allows 2 active projects; pause one if both are used).
-2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`, `0005_weekly_updates.sql`
+2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`, `0005_weekly_updates.sql`, `0006_price_list_and_discounts.sql`
+   (and `supabase/seed/price_list.sql`)
    (and `supabase/seed/tailbone_decisions.sql` for the 19 Oct meeting).
    Deploy `supabase/functions/admin-users` (Edge Functions).
    (Already done for the live project `client-portal`, ref `zfinxpsezesqzskhaqad`, Mumbai.)
@@ -87,7 +89,11 @@ username, password and the `/login` address yourself.
 - **Track time:** Time tab → Start timer / Stop. Your dashboard turns hours into earned per hour.
 - **Numbers for any project:** Numbers tab → paste `metric, 2026-10, value, unit, source` lines from a
   spreadsheet. Use the same metric names across projects so `/studio/compare` lines them up.
-- **Prices:** `src/data/studio.js` sets the public price list and service defaults. Each project stores its own agreed fee.
+- **Prices:** set standard prices on **Price list**. Each client's fee is set on their project (Overview →
+  Services and fees): pick the service, then a discount % or the fee itself, and a reason. The pricing guide
+  shows your standard, the market range, whether the fee is below/within/above market, and your tips.
+  The client's Money tab shows standard price → discount (with your reason) → their fee, "You save ₹X", and
+  "why these prices". The dashboard totals the discounts you are giving.
 
 ## Develop
 

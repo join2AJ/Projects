@@ -12,6 +12,7 @@ import Editor from "../../components/Editor.jsx";
 import { C, inr, Chip, H1, H2, P, Box, Tabs, Card } from "../../components/ui.jsx";
 import { FilesPanel, MetricsPanel, ReportPanel, Tag, ANSWER, byMeeting } from "../../components/parts.jsx";
 import { emailToLogin } from "../../lib/auth.jsx";
+import { FeesEditor } from "../../components/pricing.jsx";
 import { draftWeekly, thisWeek, weeklyLabel, KIND_LABEL } from "../../lib/weekly.js";
 import { WEEKLY, istDate, nextWeeklyUpdate, answerBy } from "../../data/studio.js";
 
@@ -257,9 +258,7 @@ export default function StudioProject() {
       {tab === "overview" && (<>
         <ProjectForm key={p.id + p.slug} initial={p} onSaved={(d) => (d.slug !== slug ? nav(`/studio/p/${d.slug}`, { replace: true }) : reload())} />
         <H2>Services and fees</H2>
-        <Editor table="project_services" projectId={id} fields={FIELDS.project_services} order={["created_at", true]}
-          defaults={{ ...defaultsFor("project_services"), service_key: "ads-management", name: SERVICES["ads-management"].name, kind: "monthly", price: SERVICES["ads-management"].price, status: "Proposed" }}
-          columns={[col("project_services", "name", "Service"), col("project_services", "kind"), col("project_services", "price"), [ "Status", (r) => r.status ], ["Client sees", (r) => (r.client_visible ? "Yes" : "No")]]} />
+        <FeesEditor projectId={id} />
       </>)}
 
       {tab === "decisions" && (<>

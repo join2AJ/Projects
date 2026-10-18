@@ -9,6 +9,7 @@ import { STAGES, TIMETABLE, WEEKLY } from "../data/studio.js";
 import { KIND_LABEL, weeklyLabel } from "../lib/weekly.js";
 import { C, inr, Chip, H2, P, Box, T, Pills, Card, Audience } from "./ui.jsx";
 import { REPORTS } from "../projects/reports.js";
+import { FeesClient } from "./pricing.jsx";
 
 export const StageBar = ({ stage }) => {
   const at = STAGES.findIndex(([id]) => id === stage);
@@ -97,15 +98,13 @@ export function DueBanner({ projectId }) {
 export function MoneyClient({ projectId }) {
   const inv = useRows(() => supabase.from("invoices").select("*").eq("project_id", projectId).neq("status", "draft").order("issued_on", { ascending: false }), [projectId]);
   const exp = useRows(() => supabase.from("expenses").select("*").eq("project_id", projectId).eq("client_visible", true).order("spent_on", { ascending: false }), [projectId]);
-  const svc = useRows(() => supabase.from("project_services").select("*").eq("project_id", projectId).eq("client_visible", true).order("created_at"), [projectId]);
   const rows = inv.rows || [];
   const billed = rows.filter((i) => i.status !== "void").reduce((a, i) => a + total(i), 0);
   const paid = rows.reduce((a, i) => a + (i.status === "paid" ? total(i) : Number(i.paid_amount || 0)), 0);
   return (
     <div>
       <DueBanner projectId={projectId} />
-      <H2>Agreed fees</H2>
-      <T head={["Service", "Billing", "Fee (ex-GST)", "Status"]} right={[2]} rows={(svc.rows || []).map((s) => [s.name, s.kind, inr(s.price), s.status])} />
+      <FeesClient projectId={projectId} />
       <H2>Invoices</H2>
       <T head={["Invoice", "For", "Issued", "Total", "Status"]} right={[3]} rows={rows.map((i) => {
         const [l, tone] = invoiceState(i);

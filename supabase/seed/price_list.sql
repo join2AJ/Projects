@@ -1,0 +1,40 @@
+-- Starting price list. Market ranges are typical Indian freelancer-to-small-agency rates for a single
+-- clinic (ex-GST), as of late 2026. They are estimates to edit as you learn your market.
+insert into public.services (id, name, kind, avg_price, market_low, market_high, min_months, sort, summary, includes, why) values
+('ads-audit', 'Google Ads audit and rebuild', 'one-time', 15000, 8000, 25000, null, 1,
+ 'Full account review, conversion audit, billing reconciliation, and a new campaign built and published.',
+ E'Campaign, billing, conversion, asset and policy review\nWritten findings: what is right, what is wrong, how to fix it\nNew campaign built with budget cap, targeting and policy checks\n12-month budget plan and break-even rule',
+ 'Two to three days of specialist work: every campaign, invoice and conversion setting is checked by hand, then a clean campaign is built. One wasted month of ad spend usually costs more than the audit.'),
+('ads-management', 'Google Ads management', 'monthly', 6000, 5000, 20000, 3, 2,
+ 'Running the account week to week.',
+ E'Search terms review and negative keywords\nWeekly update every Tuesday at 11:00\nMonthly review with the 5-Layer Check\nBudget changes only with your written approval',
+ 'Agencies charge 10–20% of ad spend with a minimum of ₹5,000–₹8,000 a month. Small budgets need the same weekly checks as large ones, which is why there is a minimum.'),
+('website-redesign', 'Website redesign', 'one-time', 45000, 30000, 100000, null, 3,
+ 'New mobile-first website with booking, clinic pages, and Google tracking installed.',
+ E'Up to 10 pages: home, doctor, treatments, FAQs, locations, contact, blog\nAppointment booking and WhatsApp contact\nGoogle tag, call and form tracking, Search Console\nDomain switch-over and 30 days of fixes after launch',
+ 'A clinic site with booking, tracking and medical-claim care takes 3 to 5 weeks. Template sites cost less but rarely track enquiries or pass Google’s health-ad checks.'),
+('maintenance', 'Website maintenance', 'monthly', 3500, 2000, 6000, 6, 4,
+ 'Keeping the site fast, safe, backed up and up to date.',
+ E'Uptime and form checks, weekly backups\nUp to 2 hours of content changes a month\nHosting, domain and SSL renewals watched\nFixes within 2 working days',
+ 'Covers backups, security updates, form checks and small edits. One lost week of bookings from a broken form costs more than a year of maintenance.'),
+('seo', 'Local SEO', 'monthly', 10000, 8000, 25000, 6, 5,
+ 'Getting found on Google and Maps for searches near the clinic, without paying per click.',
+ E'Google Business Profile: posts, photos, Q&A, review replies\nOn-page fixes and 2 articles a month\nLocal listings and citations\nMonthly ranking and enquiry report',
+ 'Local SEO builds patients you do not pay per click for. Results take 3 to 6 months, so it is priced as a steady monthly effort with a 6-month minimum.');
+
+insert into public.service_notes (service_id, factors, tips) values
+('ads-audit',
+ 'Number of campaigns and years of history; how messy conversion tracking is; whether a new campaign is built.',
+ 'Open with the money found: wasted spend since the last audit. Easy to discount or fold into the first month for a client who signs up for management.'),
+('ads-management',
+ 'Ad spend; number of campaigns and locations; how often reports are needed; call tracking setup.',
+ 'Doctors compare the fee with the ad budget. Under ₹10,000 spend, a reduced fee (₹3,000–₹4,000) feels fair; raise it as spend grows. Never price below the time the weekly update takes.'),
+('website-redesign',
+ 'Pages, booking system, languages, copywriting, photos, integrations, domain migration.',
+ 'Show the old site’s problems first (wrong clinics, no tracking). Discount by trimming scope rather than price where possible. Keep the 50/30/20 split.'),
+('maintenance',
+ 'Hosting included or not; hours of edits per month; response time promised.',
+ 'Easy add-on once the site is live. Offer the first month free to start the habit.'),
+('seo',
+ 'Number of clinic locations; competition in the area; content volume; review management.',
+ 'Sell it after the website is live, not before. Set expectations at 3–6 months. A founding-client discount works well here because the minimum term protects you.');

@@ -119,6 +119,8 @@ export default function Dashboard() {
       outstanding: open.reduce((a, i) => a + balance(i), 0), overdueSum: overdue.reduce((a, i) => a + balance(i), 0),
       spentMonth: spent((d) => ym(d) === month), hrsMonth: hrs((d) => ym(d) === month),
       rate90: (() => { const h = hrs((d) => d >= since90); const g = paidIn((d) => d >= since90.slice(0, 10)) - spent((d) => d >= since90.slice(0, 10)); return h ? g / h : null; })(),
+      discMonth: svc.rows.filter((x) => x.kind === "monthly" && !["Declined", "Stopped"].includes(x.status)).reduce((a, x) => a + Math.max(0, Number(x.list_price ?? x.price) - Number(x.price)), 0),
+      discOnce: svc.rows.filter((x) => x.kind === "one-time" && x.status !== "Declined").reduce((a, x) => a + Math.max(0, Number(x.list_price ?? x.price) - Number(x.price)), 0),
       pipeline: pipeline.reduce((a, s) => a + Number(s.price) * (s.kind === "monthly" ? 12 : 1), 0), pipelineN: pipeline.length,
       openTimers: time.rows.filter((t) => !t.ended_at),
       chart: months.map((m) => ({
@@ -142,6 +144,7 @@ export default function Dashboard() {
         <div className="text-sm flex gap-4">
           <Link to="/studio/new" style={{ color: C.deep, fontWeight: 600 }}>+ New project</Link>
           <Link to="/studio/users" style={{ color: C.deep }}>People and clinics</Link>
+          <Link to="/studio/pricing" style={{ color: C.deep }}>Price list</Link>
           <Link to="/studio/compare" style={{ color: C.deep }}>Compare</Link>
           <Link to="/studio/overheads" style={{ color: C.deep }}>Overheads</Link>
           <button className="underline" style={{ color: C.mute }} onClick={signOut}>Sign out</button>
@@ -149,7 +152,7 @@ export default function Dashboard() {
       </div>
       {errs.length > 0 && <Box tone="bad" title="Some data did not load">{errs[0].message}</Box>}
 
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-4 mb-4">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-3 mb-4">
         <Stat label="Received this month" value={inr(k.paidMonth)} note={`${inr(k.paidYear)} this year`} />
         <Stat label="Owed to you" value={inr(k.outstanding)} note={`${k.open.length} invoices sent`} tone={k.outstanding ? "warn" : null} />
         <Stat label="Overdue" value={inr(k.overdueSum)} note={`${k.overdue.length} invoices`} tone={k.overdue.length ? "bad" : "good"} />
@@ -158,6 +161,7 @@ export default function Dashboard() {
         <Stat label="Earned per hour, 90 days" value={k.rate90 == null ? "–" : inr(k.rate90)} note={`received minus your expenses ÷ hours. Target ${inr(STUDIO.hourly)}`} tone={k.rate90 == null ? null : k.rate90 >= STUDIO.hourly ? "good" : "warn"} />
         <Stat label="Your expenses this month" value={inr(k.spentMonth)} />
         <Stat label="Proposed, not yet agreed" value={inr(k.pipeline)} note={`${k.pipelineN} services, monthly ones × 12`} />
+        <Stat label="Discounts given" value={inr(k.discMonth) + " / month"} note={`${inr(k.discOnce)} on one-time work, vs standard prices`} tone={k.discMonth || k.discOnce ? "warn" : null} />
       </div>
 
       <H2>Needs you</H2>

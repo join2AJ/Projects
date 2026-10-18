@@ -3,7 +3,7 @@ import { C, FB, FH } from "./ui.jsx";
 import { STUDIO } from "../data/studio.js";
 import { useAuth } from "../lib/auth.jsx";
 
-const ADMIN = [["/studio", "Dashboard"], ["/studio/users", "People"], ["/studio/compare", "Compare"], ["/account", "Account"]];
+const ADMIN = [["/studio", "Dashboard"], ["/studio/users", "People"], ["/studio/pricing", "Price list"], ["/studio/compare", "Compare"], ["/account", "Account"]];
 const CLIENT = [["/portal", "My projects"], ["/services", "Services and pricing"], ["/process", "How we work"], ["/account", "Account"]];
 
 export default function Layout() {

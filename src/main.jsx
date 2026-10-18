@@ -13,6 +13,7 @@ import Dashboard from "./pages/studio/Dashboard.jsx";
 import StudioProject, { NewProject } from "./pages/studio/StudioProject.jsx";
 import Compare, { Overheads } from "./pages/studio/Compare.jsx";
 import Users from "./pages/studio/Users.jsx";
+import PriceList from "./pages/studio/PriceList.jsx";
 
 // Only /login is public. Everything else needs a signed-in user; /studio needs the admin.
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -30,6 +31,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="portal/p/:slug" element={<Require><PortalProject /></Require>} />
             <Route path="studio" element={<Require owner><Dashboard /></Require>} />
             <Route path="studio/users" element={<Require owner><Users /></Require>} />
+            <Route path="studio/pricing" element={<Require owner><PriceList /></Require>} />
             <Route path="studio/new" element={<Require owner><NewProject /></Require>} />
             <Route path="studio/compare" element={<Require owner><Compare /></Require>} />
             <Route path="studio/overheads" element={<Require owner><Overheads /></Require>} />

@@ -1,0 +1,215 @@
+/*
+ * Prices: the price list (services + private service_notes), each client's fees with any discount,
+ * and how both look to the client. A client's fee is project_services.price; list_price is the
+ * standard price when it was agreed, so the discount is list_price - price.
+ */
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { supabase } from "../lib/supabase.js";
+import { useRows } from "../lib/useRows.js";
+import { C, inr, Chip, H2, P, Box, T, Card } from "./ui.jsx";
+
+export const per = (kind) => (kind === "monthly" ? "/ month" : kind === "hourly" ? "/ hour" : "one-time");
+export const discountOf = (s) => (s.list_price != null && Number(s.list_price) > Number(s.price) ? Number(s.list_price) - Number(s.price) : 0);
+export const pctOf = (s) => (discountOf(s) && Number(s.list_price) ? Math.round((discountOf(s) / Number(s.list_price)) * 100) : 0);
+export const notesOf = (s) => (Array.isArray(s?.service_notes) ? s.service_notes[0] : s?.service_notes) || {};
+export const range = (s) => (s.market_low != null && s.market_high != null ? `${inr(s.market_low)}–${inr(s.market_high)}` : "–");
+
+const input = "mt-1 w-full px-2 py-1.5 rounded text-sm";
+const fs = { border: `1px solid ${C.rule}`, background: "#fff" };
+const F = ({ label, children, wide }) => <label className={`block text-xs mb-3 ${wide ? "md:col-span-2" : ""}`} style={{ color: C.mute }}>{label}{children}</label>;
+
+/* Market position of a price: below, inside or above the usual range. */
+function Position({ price, s }) {
+  if (s?.market_low == null || s?.market_high == null) return null;
+  const p = Number(price);
+  if (p < Number(s.market_low)) return <Chip tone="warn">below market</Chip>;
+  if (p > Number(s.market_high)) return <Chip tone="warn">above market</Chip>;
+  return <Chip tone="good">within market</Chip>;
+}
+
+/* ───────── admin: one client's fees, with discount calculator ───────── */
+export function FeesEditor({ projectId }) {
+  const fees = useRows(() => supabase.from("project_services").select("*").eq("project_id", projectId).order("created_at"), [projectId]);
+  const cat = useRows(() => supabase.from("services").select("*, service_notes(factors,tips)").order("sort"), []);
+  const [edit, setEdit] = useState(null);
+  const [msg, setMsg] = useState(null);
+  const [confirm, setConfirm] = useState(null);
+  const svc = (key) => (cat.rows || []).find((c) => c.id === key);
+
+  const pick = (key) => {
+    const s = svc(key);
+    setEdit((e) => ({ ...e, service_key: key, ...(s ? { name: s.name, kind: s.kind, list_price: s.avg_price, price: s.avg_price } : {}) }));
+  };
+  const setPct = (pct) => setEdit((e) => ({ ...e, price: Math.max(0, Math.round(Number(e.list_price || 0) * (1 - Number(pct || 0) / 100))) }));
+
+  const save = async (ev) => {
+    ev.preventDefault();
+    const body = {
+      project_id: projectId, service_key: edit.service_key, name: edit.name, kind: edit.kind,
+      list_price: edit.list_price === "" || edit.list_price == null ? null : Number(edit.list_price),
+      price: Number(edit.price), discount_note: edit.discount_note || null, status: edit.status,
+      start_on: edit.start_on || null, note: edit.note || null, client_visible: !!edit.client_visible,
+    };
+    const { error } = edit.id ? await supabase.from("project_services").update(body).eq("id", edit.id) : await supabase.from("project_services").insert(body);
+    if (error) return setMsg(["bad", error.message]);
+    setMsg(["good", "Saved. The client sees the new fee straight away."]); setEdit(null); fees.reload();
+  };
+  const remove = async (r) => { await supabase.from("project_services").delete().eq("id", r.id); setConfirm(null); fees.reload(); };
+
+  const rows = fees.rows || [];
+  const monthlyList = rows.filter((r) => r.kind === "monthly").reduce((a, r) => a + Number(r.list_price ?? r.price), 0);
+  const monthly = rows.filter((r) => r.kind === "monthly").reduce((a, r) => a + Number(r.price), 0);
+  const onceList = rows.filter((r) => r.kind === "one-time").reduce((a, r) => a + Number(r.list_price ?? r.price), 0);
+  const once = rows.filter((r) => r.kind === "one-time").reduce((a, r) => a + Number(r.price), 0);
+  const s = edit && svc(edit.service_key);
+  const d = edit ? Math.max(0, Number(edit.list_price || 0) - Number(edit.price || 0)) : 0;
+
+  return (
+    <div>
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
+        <P style={{ marginBottom: 0 }}>The client sees the standard price, your discount and their fee. Set prices for all clients on <Link to="/studio/pricing" className="underline" style={{ color: C.deep }}>Price list</Link>.</P>
+        <button onClick={() => { setMsg(null); setEdit({ status: "Proposed", client_visible: true, kind: "monthly" }); }} className="px-3 py-1 rounded text-sm font-semibold" style={{ background: C.deep, color: "#fff" }}>Add service</button>
+      </div>
+      {msg && <div className="text-sm mb-2" style={{ color: C[msg[0]] }}>{msg[1]}</div>}
+      {edit && (
+        <form onSubmit={save} className="p-4 mb-4" style={{ background: C.card, border: `1px solid ${C.deep}`, borderRadius: 4 }}>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="md:col-span-2 grid md:grid-cols-2 gap-x-4">
+              <F label="Service">
+                <select id="fee-service" required value={edit.service_key || ""} onChange={(e) => pick(e.target.value)} className={input} style={fs}>
+                  <option value="" disabled>Choose…</option>
+                  {(cat.rows || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  <option value="custom">Custom</option>
+                </select>
+              </F>
+              <F label="Name the client sees"><input id="fee-name" required value={edit.name || ""} onChange={(e) => setEdit({ ...edit, name: e.target.value })} className={input} style={fs} /></F>
+              <F label="Billing">
+                <select id="fee-kind" value={edit.kind} onChange={(e) => setEdit({ ...edit, kind: e.target.value })} className={input} style={fs}>
+                  <option value="one-time">One-time</option><option value="monthly">Monthly</option><option value="hourly">Hourly</option>
+                </select>
+              </F>
+              <F label="Standard price (₹, ex-GST)"><input id="fee-list" type="number" min="0" value={edit.list_price ?? ""} onChange={(e) => setEdit({ ...edit, list_price: e.target.value })} className={input} style={fs} /></F>
+              <F label="Discount %">
+                <input id="fee-pct" type="number" min="0" max="100" value={edit.list_price ? Math.round((d / Number(edit.list_price)) * 100) : 0} onChange={(e) => setPct(e.target.value)} className={input} style={fs} />
+              </F>
+              <F label="Client's fee (₹, ex-GST)"><input id="fee-price" type="number" min="0" required value={edit.price ?? ""} onChange={(e) => setEdit({ ...edit, price: e.target.value })} className={input} style={fs} /></F>
+              <F label="Reason for the discount (the client sees this)" wide>
+                <input id="fee-reason" value={edit.discount_note || ""} onChange={(e) => setEdit({ ...edit, discount_note: e.target.value })} placeholder="e.g. Founding client, referred by a friend" className={input} style={fs} />
+              </F>
+              <F label="Status">
+                <select id="fee-status" value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value })} className={input} style={fs}>
+                  {["Proposed", "Agreed", "In progress", "Live", "Done", "Paused", "Stopped", "Declined"].map((o) => <option key={o}>{o}</option>)}
+                </select>
+              </F>
+              <F label="Starts"><input id="fee-start" type="date" value={edit.start_on || ""} onChange={(e) => setEdit({ ...edit, start_on: e.target.value })} className={input} style={fs} /></F>
+              <F label="Note for the client" wide><input id="fee-note" value={edit.note || ""} onChange={(e) => setEdit({ ...edit, note: e.target.value })} className={input} style={fs} /></F>
+              <label className="flex items-center gap-2 text-sm mb-3"><input type="checkbox" checked={!!edit.client_visible} onChange={(e) => setEdit({ ...edit, client_visible: e.target.checked })} /> Client can see this</label>
+            </div>
+            <div className="text-sm" style={{ background: C.bg, padding: 12, borderRadius: 4 }}>
+              <div className="font-semibold mb-1" style={{ color: C.deep }}>Pricing guide</div>
+              {s ? (<>
+                <div>Your standard: <b>{inr(s.avg_price)}</b> {per(s.kind)}</div>
+                <div>Market: <b>{range(s)}</b></div>
+                <div className="mt-1">This fee: <b>{inr(edit.price || 0)}</b> <Position price={edit.price || 0} s={s} /></div>
+                {d > 0 && <div className="mt-1" style={{ color: C.good }}>Client saves {inr(d)} {per(edit.kind)}</div>}
+                {notesOf(s).factors && <div className="mt-2"><b>What changes the price: </b>{notesOf(s).factors}</div>}
+                {notesOf(s).tips && <div className="mt-2"><b>Tip: </b>{notesOf(s).tips}</div>}
+              </>) : <div style={{ color: C.mute }}>Choose a service to see your standard price, the market range and tips.</div>}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" className="px-3 py-1 rounded text-sm font-semibold" style={{ background: C.deep, color: "#fff" }}>Save</button>
+            <button type="button" onClick={() => setEdit(null)} className="px-3 py-1 rounded text-sm" style={{ border: `1px solid ${C.rule}`, background: "#fff" }}>Cancel</button>
+          </div>
+        </form>
+      )}
+      <T head={["Service", "Billing", "Standard", "Discount", "Client’s fee", "Market", "Status", "Client sees", ""]} right={[2, 3, 4]} rows={rows.map((r) => [
+        <b key="n">{r.name}</b>, r.kind, r.list_price != null ? inr(r.list_price) : "–",
+        discountOf(r) ? <span key="d" style={{ color: C.good }}>−{inr(discountOf(r))} ({pctOf(r)}%)</span> : "–",
+        <b key="p">{inr(r.price)}</b>, <span key="m" className="text-xs">{range(svc(r.service_key) || {})} <Position price={r.price} s={svc(r.service_key)} /></span>,
+        r.status, r.client_visible ? "Yes" : "No",
+        <span key="a" className="text-xs whitespace-nowrap">
+          <button className="underline mr-2" style={{ color: C.deep }} onClick={() => { setMsg(null); setEdit({ ...r }); }}>Edit</button>
+          {confirm === r.id ? <button className="underline" style={{ color: C.bad }} onClick={() => remove(r)}>Confirm delete</button>
+            : <button className="underline" style={{ color: C.mute }} onClick={() => setConfirm(r.id)}>Delete</button>}
+        </span>,
+      ])} />
+      {rows.length > 0 && (
+        <P style={{ color: C.mute }}>
+          One-time {inr(once)}{onceList > once ? ` (standard ${inr(onceList)})` : ""} · monthly {inr(monthly)}{monthlyList > monthly ? ` (standard ${inr(monthlyList)})` : ""}.
+          {(onceList > once || monthlyList > monthly) && ` Discount given: ${inr(onceList - once)} one-time and ${inr(monthlyList - monthly)} a month.`}
+        </P>
+      )}
+    </div>
+  );
+}
+
+/* ───────── client: their fees, discount and why ───────── */
+export function FeesClient({ projectId }) {
+  const fees = useRows(() => supabase.from("project_services").select("*").eq("project_id", projectId).eq("client_visible", true).order("created_at"), [projectId]);
+  const cat = useRows(() => supabase.from("services").select("id,why,market_low,market_high,includes"), []);
+  const [open, setOpen] = useState(null);
+  const rows = fees.rows || [];
+  const svc = (k) => (cat.rows || []).find((c) => c.id === k);
+  const saveOnce = rows.filter((r) => r.kind === "one-time").reduce((a, r) => a + discountOf(r), 0);
+  const saveMonth = rows.filter((r) => r.kind === "monthly").reduce((a, r) => a + discountOf(r), 0);
+  return (
+    <div>
+      <H2>Your fees</H2>
+      {(saveOnce > 0 || saveMonth > 0) && (
+        <Box tone="good" title="Your discount">
+          You save {[saveOnce > 0 && `${inr(saveOnce)} on one-time work`, saveMonth > 0 && `${inr(saveMonth)} every month`].filter(Boolean).join(" and ")} compared with the standard price.
+        </Box>
+      )}
+      <T head={["Service", "Standard price", "Your discount", "Your fee (ex-GST)", "Status"]} right={[1, 2, 3]} rows={rows.map((r) => [
+        <span key="n"><b>{r.name}</b><div className="text-xs" style={{ color: C.mute }}>{per(r.kind)}{r.note ? ` · ${r.note}` : ""}</div></span>,
+        discountOf(r) ? <s key="l" style={{ color: C.mute }}>{inr(r.list_price)}</s> : inr(r.list_price ?? r.price),
+        discountOf(r) ? <span key="d" style={{ color: C.good }}>−{inr(discountOf(r))} ({pctOf(r)}%){r.discount_note ? <div className="text-xs">{r.discount_note}</div> : null}</span> : "–",
+        <b key="p">{inr(r.price)}</b>, r.status,
+      ])} />
+      <H2>Why these prices</H2>
+      {rows.map((r) => {
+        const s = svc(r.service_key);
+        if (!s?.why) return null;
+        return (
+          <div key={r.id} className="mb-2">
+            <button className="text-sm underline text-left" style={{ color: C.deep }} onClick={() => setOpen(open === r.id ? null : r.id)}>{r.name}</button>
+            {open === r.id && (
+              <Card className="mt-1">
+                <P style={{ marginBottom: 6 }}>{s.why}</P>
+                {s.market_low != null && <P style={{ marginBottom: 6, color: C.mute }}>Typical market rate: {range(s)} {per(r.kind)}.</P>}
+                {s.includes && <ul className="text-sm pl-5" style={{ listStyle: "disc", lineHeight: 1.6 }}>{s.includes.split("\n").filter(Boolean).map((x) => <li key={x}>{x}</li>)}</ul>}
+              </Card>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ───────── signed-in price list (clients see it under Services and pricing) ───────── */
+export function PublicPriceList() {
+  const { rows } = useRows(() => supabase.from("services").select("*").eq("active", true).order("sort"), []);
+  if (!rows) return <P>Loading…</P>;
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {rows.map((s) => (
+        <Card key={s.id}>
+          <div className="flex flex-wrap justify-between items-baseline gap-2">
+            <span className="font-semibold" style={{ color: C.deep }}>{s.name}</span>
+            <span className="font-semibold">{inr(s.avg_price)}<span className="text-xs" style={{ color: C.mute }}> {per(s.kind)}, typical</span></span>
+          </div>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {s.market_low != null && <Chip tone="info">Market {range(s)}</Chip>}
+            {s.min_months && <Chip tone="info">min. {s.min_months} months</Chip>}
+          </div>
+          <P style={{ color: C.mute, marginTop: 8 }}>{s.summary}</P>
+          {s.includes && <ul className="text-sm pl-5 mb-2" style={{ listStyle: "disc", lineHeight: 1.6 }}>{s.includes.split("\n").filter(Boolean).map((x) => <li key={x}>{x}</li>)}</ul>}
+          {s.why && <div className="text-xs" style={{ color: C.mute }}><b>Why this price: </b>{s.why}</div>}
+        </Card>
+      ))}
+    </div>
+  );
+}
