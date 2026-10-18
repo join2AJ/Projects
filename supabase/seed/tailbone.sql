@@ -12,7 +12,7 @@ values ('tailbone-treatment', (select id from public.clients where name = 'Dr Ra
   'Website redesign, Google Ads, website maintenance and local SEO for the Delhi clinic.',
   'Brief received Sat 17 Oct 2026, 13:00. Work started the same day at 15:00.',
   '2026-10-17', '2026-10-19 11:00+05:30',
-  'Check we are on track: old ads stopped, new Search campaign and monthly cap', 'tailbone-ads-2026-10');
+  'Kick-off update: old ads stopped, new Search campaign and monthly cap. After this, every Tuesday at 11:00.', 'tailbone-ads-2026-10');
 
 insert into public.project_services (project_id, service_key, name, kind, price, status, start_on, note) values
 ((select id from public.projects where slug = 'tailbone-treatment'), 'ads-audit', 'Google Ads audit and rebuild', 'one-time', 12000, 'Done', '2026-10-17', 'Audit 17–18 Oct. Search | Tailbone | Delhi NCR | Oct 2026 published 18 Oct, starts 19 Oct.'),
@@ -27,10 +27,10 @@ insert into public.updates (project_id, happened_on, kind, title, body, status, 
 ((select id from public.projects where slug = 'tailbone-treatment'), '2026-10-18', 'work', 'Findings written', '16 issues, 27 conversion actions audited, billing reconciled to invoices.', 'Done', true),
 ((select id from public.projects where slug = 'tailbone-treatment'), '2026-10-18', 'decision', 'Old campaigns paused', 'YouTube Promotion, PMax-5 and PMax-4.', 'Done', true),
 ((select id from public.projects where slug = 'tailbone-treatment'), '2026-10-18', 'milestone', 'Search campaign published', 'Delhi NCR, ₹200/day, phone calls as the goal, 15 keywords. Health-policy flag fixed.', 'Done', true),
-((select id from public.projects where slug = 'tailbone-treatment'), '2026-10-19', 'meeting', 'Review meeting with Dr Rajveer', '₹3,500 load before 10:00. Campaign start.', 'Scheduled', true),
+((select id from public.projects where slug = 'tailbone-treatment'), '2026-10-19', 'meeting', 'Kick-off update with Dr Rajveer', '₹3,500 load before 10:00. Campaign start. From now on: a written update every Tuesday at 11:00.', 'Scheduled', true),
 ((select id from public.projects where slug = 'tailbone-treatment'), '2026-10-21', 'work', 'Day 3: real searches reviewed', 'Agree negative keywords.', 'Scheduled', true),
-((select id from public.projects where slug = 'tailbone-treatment'), '2026-11-02', 'meeting', 'Day 14: first review', '5-Layer Check.', 'Scheduled', true),
-((select id from public.projects where slug = 'tailbone-treatment'), '2026-11-18', 'decision', 'Day 30: budget decision', 'Raise, hold or cut.', 'Scheduled', true),
+((select id from public.projects where slug = 'tailbone-treatment'), '2026-11-03', 'meeting', 'Weekly update: first full review (day 14)', 'Results of the first two weeks with the 5-Layer Check.', 'Scheduled', true),
+((select id from public.projects where slug = 'tailbone-treatment'), '2026-11-17', 'meeting', 'Weekly update: budget decision (day 30)', 'Raise, hold or cut.', 'Scheduled', true),
 ((select id from public.projects where slug = 'tailbone-treatment'), '2026-10-18', 'note', 'Access', 'Every change in the last 30 days was made from rajveer.pt@gmail.com. Move to Standard access before more changes.', 'Done', false),
 ((select id from public.projects where slug = 'tailbone-treatment'), '2026-10-18', 'note', 'SPH', 'Ask who “SPH” is (New Phone Call Lead By SPH) without suggesting blame.', 'Done', false);
 

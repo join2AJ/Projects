@@ -1,6 +1,7 @@
 import { C, H1, H2, P, T, Card } from "../components/ui.jsx";
 import { ONBOARDING, OFFBOARDING, STAGES } from "../data/studio.js";
 import { FeedbackForm } from "../components/forms.jsx";
+import { TimetableTable } from "../components/parts.jsx";
 
 export default function Process() {
   return (
@@ -26,8 +27,9 @@ export default function Process() {
       <P>Only what the work needs. Always by invite to my own email, so every change is traceable and you can remove me in one click.</P>
       <T head={["Tool", "Access level"]} rows={Object.entries(ONBOARDING.access)} />
 
-      <H2>Every week</H2>
-      <P>A one-page update every Friday: what was done, what changed, what it cost, what is next. Budgets never change without your written OK.</P>
+      <H2>Every week: the timetable</H2>
+      <P>The same timetable for every client. Your written update appears on your project page every Tuesday at 11:00 IST. Budgets never change without your written OK.</P>
+      <TimetableTable />
 
       <H2>Handover: when a project ends</H2>
       <T head={["Step", "What you get"]} rows={OFFBOARDING.map(([a, b]) => [<b key={a}>{a}</b>, b])} />

@@ -13,7 +13,7 @@ export const REPORTS = {
   "tailbone-ads-2026-10": {
     label: "Google Ads audit, Oct 2026",
     tabs: [
-      ["meeting", "Meeting brief, 19 Oct", MeetingBrief],
+      ["meeting", "Kick-off update, 19 Oct", MeetingBrief],
       ["rw", "Right vs wrong", tailbone.RightWrong],
       ["verdict", "Verdict", tailbone.Verdict],
       ["issues", "Issues and fixes", tailbone.Issues],

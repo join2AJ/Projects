@@ -1,4 +1,4 @@
-/* Meeting brief for Dr Rajveer, Mon 19 Oct 2026: are we on track, and why the two big decisions were right. */
+/* Kick-off update brief for Dr Rajveer, Mon 19 Oct 2026: are we on track, and why the two big decisions were right. */
 import { C, inr, Chip, H1, H2, P, Box, T, OL, Status, StudioOnly, useStudio } from "../../components/ui.jsx";
 import { CAMP, TOTAL_COST, ALL, LEDGER, LEDGER_TOTAL, GST, DAYS } from "./audit.jsx";
 
@@ -16,7 +16,7 @@ export function MeetingBrief() {
 
   return (
     <div>
-      <div className="text-xs mb-2" style={{ color: C.mute }}>Meeting brief · Mon 19 Oct 2026 · Dr Rajveer and Ajay</div>
+      <div className="text-xs mb-2" style={{ color: C.mute }}>Kick-off update · Mon 19 Oct 2026 · Dr Rajveer and Ajay · then every Tuesday at 11:00</div>
       <H1>We are on track: ad money now goes to people searching for tailbone treatment, with a hard monthly ceiling</H1>
       <P>
         Since 1 August, {inr(LEDGER_TOTAL)} (before GST) went to campaigns that mostly bought cheap clicks and video views. On 18 Oct we paused all of them
@@ -52,7 +52,7 @@ export function MeetingBrief() {
         ["Who sees the ads", "Google Search, Delhi NCR", "Only people typing tailbone-related searches near the Delhi clinic. No Display, no Search Partners, no video."],
       ]} />
 
-      <H2>{studio ? "Honest risks to raise in the meeting" : "Risks and open points"}</H2>
+      <H2>{studio ? "Honest risks to raise in the update" : "Risks and open points"}</H2>
       <T head={["Risk", "What we do", "Status"]} rows={[
         ["The ad sends people to tailbonetreatment.com, which still lists Bangalore and says “India’s No. 1”", "Doctor’s web person removes those lines, or we point the ad at the new site. Must happen before launch.", <Status key="1" s="Before launch" />],
         ["Only calls from the ad’s own call button are counted (60 s or more)", "Website bookings, WhatsApp and calls dialled from the page are not tracked yet. Ask how each new patient found the clinic until website tracking exists.", <Status key="2" s="Open" />],
@@ -69,7 +69,7 @@ export function MeetingBrief() {
         "5 min: what we did on 18 Oct. Old ads paused, Search campaign built, monthly cap set.",
         "5 min: the risks above, and the website fix needed before launch.",
         "10 min: what is needed from you (list below), and agree the scope and fees (Plan and pricing tab).",
-        "5 min: dates. 21 Oct search review, 2 Nov first review, 18 Nov budget decision. Weekly Friday update.",
+        "5 min: dates. 21 Oct search review, Tue 3 Nov first full review, Tue 17 Nov budget decision. Written update every Tuesday at 11:00.",
       ]} />
 
       <H2>{studio ? "What to ask for" : "What we need from you"}</H2>
@@ -90,7 +90,7 @@ export function MeetingBrief() {
         `“Since 1 August that was about ${inr(LEDGER_TOTAL * GST)} with GST, so we stopped it.”`,
         `“The new campaign shows only to people in Delhi NCR searching for tailbone treatment, and costs about ${inr(month)} a month, never above ${inr(CEILING)}.”`,
         "“Before it starts, the old website must stop mentioning Bangalore.”",
-        "“I will send you a one-page update every Friday, and I will not change the budget without your approval.”",
+        "“Every Tuesday at 11:00 you get a written update on your project page, and I will not change the budget without your approval.”",
       ]} />
       </StudioOnly>)}
       <P style={{ color: C.mute }}>30-day figures (17 Sep – 16 Oct, ex-GST): {inr(TOTAL_COST)} across the three campaigns in the report. Ledger figures are 1 Aug – 17 Oct, net of credits.</P>

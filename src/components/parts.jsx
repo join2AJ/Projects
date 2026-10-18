@@ -5,7 +5,8 @@ import { supabase, BUCKET } from "../lib/supabase.js";
 import { useRows } from "../lib/useRows.js";
 import { balance, invoiceState, fmtDate, isOverdue, total } from "../lib/money.js";
 import { LABEL, TONE } from "../lib/schema.js";
-import { STAGES } from "../data/studio.js";
+import { STAGES, TIMETABLE, WEEKLY } from "../data/studio.js";
+import { KIND_LABEL, weeklyLabel } from "../lib/weekly.js";
 import { C, inr, Chip, H2, P, Box, T, Pills, Card, Audience } from "./ui.jsx";
 import { REPORTS } from "../projects/reports.js";
 
@@ -44,7 +45,7 @@ export function UpdatesList({ projectId, limit, mode = "all" }) {
       {rows.map((u) => (
         <li key={u.id} className="pl-3 mb-3" style={{ borderLeft: `3px solid ${u.status === "Done" ? C.good : u.status === "Blocked" ? C.bad : C.info}` }}>
           <div className="flex flex-wrap gap-2 items-center text-xs" style={{ color: C.mute }}>
-            <span>{fmtDate(u.happened_on)}</span><Chip tone="info">{u.kind}</Chip>
+            <span>{fmtDate(u.happened_on)}</span><Chip tone={u.kind === "meeting" ? "good" : "info"}>{KIND_LABEL[u.kind] || u.kind}</Chip>
             <Chip tone={u.status === "Done" ? "good" : u.status === "Blocked" ? "bad" : "warn"}>{u.status}</Chip>
           </div>
           <div className="font-semibold text-sm">{u.title}</div>
@@ -285,7 +286,7 @@ export function ReportPanel({ reportKey, studio }) {
 /* ───────── decisions (client side) ───────── */
 export const ANSWER = { yes: ["Yes", "good"], no: ["No", "bad"], other: ["Other", "warn"] };
 
-/* Decisions grouped by meeting, newest meeting first. */
+/* Decisions grouped by the weekly update they belong to, newest first. */
 export const byMeeting = (rows) => {
   const groups = new Map();
   for (const d of rows) {
@@ -358,7 +359,7 @@ export function DecisionsClient({ projectId }) {
         const done = list.filter((d) => d.answer || d.status === "closed").length;
         return (
           <div key={day} className="mb-6">
-            <H2>{day ? `Meeting, ${fmtDate(day)}` : "Other decisions"}</H2>
+            <H2>{day ? `Update, ${fmtDate(day)}` : "Other decisions"}</H2>
             <div className="text-xs mb-3" style={{ color: C.mute }}>{done} of {list.length} answered</div>
             {list.map((d, i) => <DecisionCard key={d.id + (d.answered_at || "") + d.status} d={d} n={i + 1} onSaved={reload} />)}
           </div>
@@ -377,3 +378,18 @@ export function DecisionsBanner({ projectId, onOpen }) {
     </Box>
   );
 }
+
+/* ───────── weekly timetable ───────── */
+export function TimetableBox({ extra }) {
+  const showExtra = extra?.at && new Date(extra.at) > new Date();
+  return (
+    <Box tone="info" title={`Weekly update: ${WEEKLY.label}`}>
+      Next update: <b>{weeklyLabel()}</b>, on this page.
+      {showExtra && <> Extra update: <b>{new Date(extra.at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" })}</b>{extra.note ? `: ${extra.note.replace(/\.$/, "")}` : ""}.</>}
+    </Box>
+  );
+}
+
+export const TimetableTable = () => (
+  <T head={["When", "Time (IST)", "What happens"]} rows={TIMETABLE.map(([d, t, w]) => [<b key={d}>{d}</b>, t || "–", w])} />
+);

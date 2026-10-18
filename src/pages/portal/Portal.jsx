@@ -7,7 +7,7 @@ import { useRows } from "../../lib/useRows.js";
 import { fmtDate, fmtDateTime } from "../../lib/money.js";
 import { OFFBOARDING } from "../../data/studio.js";
 import { C, H1, H2, P, Box, T, Tabs, Card } from "../../components/ui.jsx";
-import { StageBar, UpdatesList, IssuesList, DueBanner, MoneyClient, MetricsPanel, FilesPanel, RequestsClient, ReportPanel, DecisionsClient, DecisionsBanner } from "../../components/parts.jsx";
+import { StageBar, UpdatesList, IssuesList, DueBanner, MoneyClient, MetricsPanel, FilesPanel, RequestsClient, ReportPanel, DecisionsClient, DecisionsBanner, TimetableBox } from "../../components/parts.jsx";
 import { REPORTS } from "../../projects/reports.js";
 
 export function Portal() {
@@ -41,7 +41,7 @@ function Overview({ p, go }) {
       <P>{p.summary} {p.brief}</P>
       <DueBanner projectId={p.id} />
       <DecisionsBanner projectId={p.id} onOpen={() => go("decisions")} />
-      {p.next_meeting_at && <Box tone="info" title={`Next meeting: ${fmtDateTime(p.next_meeting_at, { dateStyle: "full", timeStyle: "short" })}`}>{p.next_meeting_note}</Box>}
+      <TimetableBox extra={{ at: p.next_meeting_at, note: p.next_meeting_note }} />
       <H2>Where we are</H2>
       <StageBar stage={p.stage} />
       <H2>Services</H2>

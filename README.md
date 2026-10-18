@@ -46,7 +46,7 @@ notes are compiled out of the live site and appear only in `npm run dev`. Use pr
 ### 1. Database (Supabase)
 
 1. Create a Supabase project (free plan allows 2 active projects; pause one if both are used).
-2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`
+2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`, `0005_weekly_updates.sql`
    (and `supabase/seed/tailbone_decisions.sql` for the 19 Oct meeting).
    Deploy `supabase/functions/admin-users` (Edge Functions).
    (Already done for the live project `client-portal`, ref `zfinxpsezesqzskhaqad`, Mumbai.)
@@ -71,7 +71,13 @@ username, password and the `/login` address yourself.
 
 - **Update a client:** Updates tab → Add, then **Approve** when it is ready for them. Unapproved updates and
   notes stay private. The dashboard lists everything waiting for approval.
-- **Meeting decisions:** project → Decisions → Add each question (with background and your recommendation),
+- **Weekly update, every Tuesday 11:00 IST, for every active client** (one timetable, set in
+  `src/data/studio.js` → `WEEKLY` and `TIMETABLE`). Project → Updates → **Write this week’s update** drafts it
+  from the last 7 days (work done, open issues, decisions waiting, payments). Edit, then **Approve** any time
+  before Tuesday; the database shows it to the client only from Tuesday 11:00. The dashboard card lists every
+  active client’s update for this week (not written / draft / approved / published) and can draft all missing ones.
+  Clients see the timetable on their overview and on How we work.
+- **Decisions:** project → Decisions → Add each question (with background and your recommendation),
   then **Send**. The client answers Yes, No or Other (Other needs a note) and can change it until you close it.
   After the meeting, Edit → Status Closed → write the final decision; the client sees it. “Copy checklist for
   WhatsApp” gives a ready-to-paste list with answers.

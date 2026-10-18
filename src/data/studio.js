@@ -36,7 +36,7 @@ export const SERVICES = {
     summary: "Running the account week to week, for ad spend up to ₹15,000 a month.",
     includes: [
       "Search terms review and negative keywords",
-      "Weekly Friday one-page update",
+      "Written weekly update every Tuesday at 11:00",
       "Monthly review using the 5-Layer Check",
       "Budget changes only with your written approval",
     ],
@@ -88,7 +88,7 @@ export const STAGES = [
   ["discovery", "Discovery", "A 30-minute call and a look at what exists today."],
   ["proposal", "Proposal", "Scope, fees and dates in writing."],
   ["onboarding", "Onboarding", "Access, assets and a kickoff call."],
-  ["delivery", "Delivery", "The work, with a Friday update every week."],
+  ["delivery", "Delivery", "The work, with a written update every Tuesday at 11:00."],
   ["review", "Review", "Monthly check against agreed goals."],
   ["offboarding", "Handover", "Everything you own handed back, cleanly."],
 ];
@@ -99,7 +99,7 @@ export const ONBOARDING = {
     "Welcome note within 24 hours of saying yes, with this portal link",
     "One page: who does what, how to reach me, response times (same working day on WhatsApp, 24 h on email)",
     "Kickoff call (30 min): goals, what success looks like in numbers, key dates",
-    "Shared calendar of reviews and the Friday update",
+    "Your weekly update every Tuesday at 11:00 IST, on your project page",
   ],
   access: {
     "Google Ads": "Standard access by email invite (Admin > Access and security). Never share your password.",
@@ -127,3 +127,38 @@ export const OFFBOARDING = [
   ["Feedback", "A short form: what worked, what didn’t. A testimonial only if you are happy to give one."],
   ["Open door", "30 days of free questions after handover."],
 ];
+
+/* ───────── the weekly timetable: the same for every client ───────── */
+export const TZ_NAME = "IST";
+export const WEEKLY = { weekday: 2, hour: 11, minute: 0, label: "Every Tuesday, 11:00 IST" }; // 2 = Tuesday
+export const ACTIVE_STAGES = ["onboarding", "delivery", "review"]; // projects that get a weekly update
+
+export const TIMETABLE = [
+  ["Monday", "by 18:00", "Ajay writes your weekly update and lists any decisions needed."],
+  ["Tuesday", "11:00", "Your weekly update appears on your project page: work done, results, issues, decisions, plan for next week."],
+  ["Tuesday to Thursday", "by Thursday 18:00", "You answer the decisions: Yes, No or Other."],
+  ["Friday", "", "Agreed decisions are put into action."],
+  ["Monday to Saturday", "10:00 to 19:00", "Requests are answered the same working day."],
+  ["First Tuesday of the month", "11:00", "The weekly update includes the monthly review: results, spend and next month’s plan."],
+  ["1st of the month", "", "Invoice for monthly services, due within 7 days."],
+];
+
+const IST_MS = 330 * 60 * 1000; // India has no daylight saving
+
+/* The next weekly update time (a Date) at or after `from`. Today counts if 11:00 has not passed. */
+export function nextWeeklyUpdate(from = new Date()) {
+  const ist = new Date(from.getTime() + IST_MS); // read the UTC fields of this as India time
+  let days = (WEEKLY.weekday - ist.getUTCDay() + 7) % 7;
+  const at = (d) => new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate() + d, WEEKLY.hour, WEEKLY.minute) - IST_MS);
+  if (days === 0 && at(0) <= from) days = 7;
+  return at(days);
+}
+
+/* YYYY-MM-DD (India) of a Date */
+export const istDate = (d) => new Date(d.getTime() + IST_MS).toISOString().slice(0, 10);
+/* Decisions raised in an update are due by Thursday 18:00 of that week */
+export const answerBy = (updateDay) => {
+  const d = new Date(updateDay + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + 2);
+  return d.toISOString().slice(0, 10);
+};

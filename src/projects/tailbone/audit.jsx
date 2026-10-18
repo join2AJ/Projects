@@ -1,7 +1,7 @@
 /*
  * Tailbone Treatment — Google Ads audit (17 Sep – 16 Oct 2026, billing to 17 Oct).
  * Ported from tailbone_ads_audit.jsx. Data and wording are as supplied; the
- * portal adds issue status (see STATUS) and the meeting brief in meeting.jsx.
+ * portal adds issue status (see STATUS) and the kick-off update brief in meeting.jsx.
  */
 import { useMemo, useState } from "react";
 import {
@@ -681,7 +681,7 @@ function Framework() {
         "“₹20,055 went to campaigns since 1 August, and we can’t yet link it to patients.”",
         "“Ads also stopped on 1 October because the balance hit zero.”",
         "“I need three things from you: revenue per new patient, your call and WhatsApp log, and permission to pause the YouTube campaign.”",
-        "“I’ll send a one-page update every Friday and won’t change budgets without your approval.”",
+        "“Every Tuesday at 11:00 you’ll get a written update, and I won’t change budgets without your approval.”",
       ]} />
 
       </StudioOnly>)}
@@ -692,7 +692,7 @@ function Framework() {
         ["Get a written monthly cap approved by him", "Protects you and him"],
         ["Log every change: date, reason, expected effect, check date", "Stops the repeated resets seen in PMax-5"],
         ["No more than one big change per campaign every 14 days", "The robot needs time to learn"],
-        ["A 30-minute review every Friday with the 5-Layer Check", "Builds the habit"],
+        ["A weekly review before each Tuesday 11:00 update, with the 5-Layer Check", "Builds the habit"],
         ["Raise budgets by 20% at most, only after the gate", "Avoids paying for guesses"],
       ]} />
 

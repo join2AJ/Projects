@@ -12,6 +12,8 @@ import Editor from "../../components/Editor.jsx";
 import { C, inr, Chip, H1, H2, P, Box, Tabs, Card } from "../../components/ui.jsx";
 import { FilesPanel, MetricsPanel, ReportPanel, Tag, ANSWER, byMeeting } from "../../components/parts.jsx";
 import { emailToLogin } from "../../lib/auth.jsx";
+import { draftWeekly, thisWeek, weeklyLabel, KIND_LABEL } from "../../lib/weekly.js";
+import { WEEKLY, istDate, nextWeeklyUpdate, answerBy } from "../../data/studio.js";
 
 const field = "mt-1 w-full px-2 py-1.5 rounded text-sm";
 const fs = { border: `1px solid ${C.rule}`, background: "#fff" };
@@ -67,8 +69,8 @@ export function ProjectForm({ initial, onSaved }) {
         <L label="Brief" wide><textarea rows={2} value={p.brief || ""} onChange={set("brief")} className={field} style={fs} /></L>
         <L label="Started"><input type="date" value={p.started_on || ""} onChange={set("started_on")} className={field} style={fs} /></L>
         <L label="Ended"><input type="date" value={p.ended_on || ""} onChange={set("ended_on")} className={field} style={fs} /></L>
-        <L label="Next meeting"><input type="datetime-local" value={localDT} onChange={set("next_meeting_at")} className={field} style={fs} /></L>
-        <L label="Meeting about"><input value={p.next_meeting_note || ""} onChange={set("next_meeting_note")} className={field} style={fs} /></L>
+        <L label="Extra one-off update (optional; weekly updates are every Tuesday 11:00)"><input type="datetime-local" value={localDT} onChange={set("next_meeting_at")} className={field} style={fs} /></L>
+        <L label="Extra update about"><input value={p.next_meeting_note || ""} onChange={set("next_meeting_note")} className={field} style={fs} /></L>
         <L label="Custom report (optional)"><select value={p.report_key || ""} onChange={set("report_key")} className={field} style={fs}><option value="">None</option>{Object.entries(REPORTS).map(([k, r]) => <option key={k} value={k}>{r.label}</option>)}</select></L>
       </div>
       <button type="submit" className="px-4 py-2 rounded text-sm font-semibold" style={{ background: C.deep, color: "#fff" }}>{p.id ? "Save project" : "Create project"}</button>
@@ -129,6 +131,32 @@ function MetricsImport({ projectId, onDone }) {
   );
 }
 
+/* ───────── weekly update ───────── */
+function WeeklyButton({ project, onDone }) {
+  const [msg, setMsg] = useState(null);
+  const { day } = thisWeek();
+  const go = async () => {
+    setMsg(null);
+    try {
+      const r = await draftWeekly(project);
+      setMsg(r.existed ? ["info", "This week’s update already exists: edit it below."] : ["good", "Draft created from the last 7 days. Edit it, then Approve. It shows to the client at the time below."]);
+      onDone();
+    } catch (e) { setMsg(["bad", e.message]); }
+  };
+  return (
+    <Card className="mb-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex-1" style={{ minWidth: 0 }}>
+          <div className="font-semibold text-sm" style={{ color: C.deep }}>Weekly update: {WEEKLY.label}</div>
+          <div className="text-sm" style={{ color: C.mute }}>This week’s goes to the client on <b>{weeklyLabel()}</b> ({fmtDate(day)}). Approve it before then.</div>
+        </div>
+        <button onClick={go} className="px-3 py-1.5 rounded text-sm font-semibold" style={{ background: C.deep, color: "#fff" }}>Write this week’s update</button>
+      </div>
+      {msg && <div className="text-sm mt-2" style={{ color: C[msg[0]] }}>{msg[1]}</div>}
+    </Card>
+  );
+}
+
 /* ───────── decisions ───────── */
 function SendToggle({ row, reload }) {
   const go = async () => { await supabase.from("decisions").update({ client_visible: !row.client_visible }).eq("id", row.id); reload(); };
@@ -137,14 +165,14 @@ function SendToggle({ row, reload }) {
     : <button className="mr-2 underline font-semibold" style={{ color: C.good }} onClick={go}>Send</button>;
 }
 
-/* Summary per meeting and a plain-text checklist for WhatsApp or notes. */
+/* Summary per weekly update and a plain-text checklist for WhatsApp or notes. */
 function DecisionsSummary({ projectId, projectName, bump }) {
   const { rows } = useRows(() => supabase.from("decisions").select("*").eq("project_id", projectId).order("meeting_on", { ascending: false, nullsFirst: false }).order("sort"), [projectId, bump]);
   const [copied, setCopied] = useState(null);
   if (!rows?.length) return null;
   const mark = (d) => (d.status === "closed" ? "✅" : d.answer ? "🟦" : "⬜");
   const text = (day, list) => [
-    `${projectName}: decisions${day ? ` for the meeting on ${fmtDate(day)}` : ""}`, "",
+    `${projectName}: decisions${day ? ` for the update on ${fmtDate(day)}` : ""}`, "",
     ...list.map((d, i) => `${mark(d)} ${i + 1}. ${d.question}${d.answer ? `\n   Answer: ${ANSWER[d.answer][0]}${d.answer_note ? `: ${d.answer_note}` : ""}` : ""}${d.outcome ? `\n   Decision: ${d.outcome}` : ""}`),
     "", "Answer on your project page, Decisions tab.",
   ].join("\n");
@@ -157,7 +185,7 @@ function DecisionsSummary({ projectId, projectName, bump }) {
         const sent = list.filter((d) => d.client_visible), answered = sent.filter((d) => d.answer), closed = list.filter((d) => d.status === "closed");
         return (
           <Card key={day}>
-            <div className="font-semibold text-sm" style={{ color: C.deep }}>{day ? `Meeting, ${fmtDate(day)}` : "No meeting date"}</div>
+            <div className="font-semibold text-sm" style={{ color: C.deep }}>{day ? `Update, ${fmtDate(day)}` : "No update date"}</div>
             <div className="text-sm" style={{ color: C.mute }}>{list.length} items · {sent.length} sent · {answered.length} answered · {closed.length} decided</div>
             <div className="text-xs mt-1">
               {["yes", "no", "other"].map((k) => <span key={k} className="mr-2"><Chip tone={ANSWER[k][1]}>{ANSWER[k][0]} {list.filter((d) => d.answer === k).length}</Chip></span>)}
@@ -235,21 +263,24 @@ export default function StudioProject() {
       </>)}
 
       {tab === "decisions" && (<>
-        <P>Questions for the client to answer Yes, No or Other. Drafts stay private until you press <b>Send</b>. After the meeting, Edit an item, set Status to Closed and write the final decision.</P>
+        <P>Questions for the client to answer Yes, No or Other. Drafts stay private until you press <b>Send</b>. After the update, Edit an item, set Status to Closed and write the final decision.</P>
         <DecisionsSummary projectId={id} projectName={p.name} bump={bump} />
         <Editor table="decisions" onChange={() => setBump((b) => b + 1)} projectId={id} fields={FIELDS.decisions} order={["sort", true]}
-          defaults={{ ...defaultsFor("decisions"), meeting_on: p.next_meeting_at ? new Date(p.next_meeting_at).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }) : today(), status: "open", sort: 100 }}
-          columns={[["#", (r) => r.sort], ["Meeting", (r) => fmtDate(r.meeting_on)], ["Question", (r) => r.question],
+          defaults={{ ...defaultsFor("decisions"), meeting_on: istDate(nextWeeklyUpdate()), due_on: answerBy(istDate(nextWeeklyUpdate())), status: "open", sort: 100 }}
+          columns={[["#", (r) => r.sort], ["Update", (r) => fmtDate(r.meeting_on)], ["Question", (r) => r.question],
             ["Sent", (r) => (r.client_visible ? <Chip key="s" tone="good">Sent</Chip> : <Chip key="d" tone="info">Draft</Chip>)],
             ["Answer", (r) => (r.answer ? <span key="a"><Chip tone={ANSWER[r.answer][1]}>{ANSWER[r.answer][0]}</Chip>{r.answer_note ? ` ${r.answer_note}` : ""}</span> : "–")],
             ["Decision", (r) => (r.status === "closed" ? <span key="c"><Chip tone="good">Closed</Chip> {r.outcome || ""}</span> : "Open")]]}
           extra={(r, reload) => <SendToggle row={r} reload={() => { reload(); setBump((b) => b + 1); }} />} />
       </>)}
 
-      {tab === "updates" && <Editor table="updates" projectId={id} fields={FIELDS.updates} order={["happened_on", false]}
+      {tab === "updates" && <WeeklyButton project={p} onDone={() => setBump((b) => b + 1)} />}
+      {tab === "updates" && <Editor key={`u${bump}`} table="updates" projectId={id} fields={FIELDS.updates} order={["happened_on", false]}
         defaults={{ ...defaultsFor("updates"), happened_on: today(), kind: "work", status: "Done" }}
-        columns={[col("updates", "happened_on"), col("updates", "kind"), col("updates", "title"), col("updates", "status"),
-          ["Client", (r) => (r.client_visible ? <Chip key="a" tone="good">Approved</Chip> : <Chip key="p" tone="warn">Waiting for approval</Chip>)]]}
+        columns={[col("updates", "happened_on"), ["Type", (r) => KIND_LABEL[r.kind] || r.kind], col("updates", "title"), col("updates", "status"),
+          ["Client", (r) => (!r.client_visible ? <Chip key="p" tone="warn">Waiting for approval</Chip>
+            : r.publish_at && new Date(r.publish_at) > new Date() ? <span key="s"><Chip tone="info">Approved</Chip> shows {fmtDateTime(r.publish_at)}</span>
+            : <Chip key="a" tone="good">Approved, visible</Chip>)]]}
         extra={(r, reload) => <Approve row={r} reload={reload} />} />}
       {tab === "updates" && <P style={{ color: C.mute }}>New updates stay private until you approve them. Approved updates show on the client’s page straight away.</P>}
 

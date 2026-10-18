@@ -6,7 +6,8 @@ import { supabase } from "../../lib/supabase.js";
 import { useRows } from "../../lib/useRows.js";
 import { balance, total, isOverdue, daysLate, fmtDate, hours, reminderText, today, fmtDateTime } from "../../lib/money.js";
 import { RECURRING } from "../../lib/schema.js";
-import { STUDIO, STAGES } from "../../data/studio.js";
+import { STUDIO, STAGES, WEEKLY, ACTIVE_STAGES } from "../../data/studio.js";
+import { draftWeekly, thisWeek, weeklyLabel, WEEKLY_KIND } from "../../lib/weekly.js";
 import { C, inr, Chip, H1, H2, P, Box, T, Card } from "../../components/ui.jsx";
 import { signOut } from "../../lib/auth.jsx";
 
@@ -35,6 +36,48 @@ function Remind({ inv, project, onDone }) {
     onDone();
   };
   return <button onClick={copy} className="underline text-xs" style={{ color: C.deep }}>{copied ? "Copied, send on WhatsApp" : "Copy reminder"}</button>;
+}
+
+/* This Tuesday's weekly updates: one per active client, on the same timetable. */
+function WeeklyCard({ projects, upcoming }) {
+  const { at, day } = thisWeek();
+  const active = projects.filter((p) => ACTIVE_STAGES.includes(p.stage));
+  const w = useRows(() => supabase.from("updates").select("id,project_id,client_visible").eq("kind", WEEKLY_KIND).eq("happened_on", day), [day]);
+  const [busy, setBusy] = useState(null);
+  const state = (p) => {
+    const u = (w.rows || []).find((x) => x.project_id === p.id);
+    if (!u) return ["Not written", "bad"];
+    if (!u.client_visible) return ["Draft: approve it", "warn"];
+    return at > new Date() ? ["Approved, goes out on time", "good"] : ["Published", "good"];
+  };
+  const missing = active.filter((p) => !(w.rows || []).some((x) => x.project_id === p.id));
+  const draftAll = async () => {
+    setBusy("Writing drafts…");
+    try { for (const p of missing) await draftWeekly(p); setBusy(null); } catch (e) { setBusy(e.message); }
+    w.reload();
+  };
+  return (
+    <Card>
+      <div className="font-semibold text-sm" style={{ color: C.deep }}>Weekly updates: {weeklyLabel(at)}</div>
+      <div className="text-xs mb-2" style={{ color: C.mute }}>{WEEKLY.label}, for every active client</div>
+      {!active.length ? <div className="text-sm" style={{ color: C.mute }}>No active projects.</div> : (
+        <ul className="text-sm grid gap-1">
+          {active.map((p) => { const [l, t] = state(p); return (
+            <li key={p.id} className="flex flex-wrap justify-between gap-2">
+              <Link to={`/studio/p/${p.slug}`} className="underline" style={{ color: C.deep }}>{p.name}</Link><Chip tone={t}>{l}</Chip>
+            </li>
+          ); })}
+        </ul>
+      )}
+      {missing.length > 0 && <button onClick={draftAll} className="mt-2 px-3 py-1 rounded text-xs font-semibold" style={{ background: C.deep, color: "#fff" }}>Write {missing.length} missing draft{missing.length > 1 ? "s" : ""}</button>}
+      {busy && <div className="text-xs mt-1" style={{ color: C.mute }}>{busy}</div>}
+      {upcoming.length > 0 && (
+        <div className="text-xs mt-3" style={{ color: C.mute }}>
+          Extra updates: {upcoming.map((p) => `${p.name} ${fmtDateTime(p.next_meeting_at)}`).join(" · ")}
+        </div>
+      )}
+    </Card>
+  );
 }
 
 export default function Dashboard() {
@@ -146,12 +189,7 @@ export default function Dashboard() {
             </ul>
           )}
         </Card>
-        <Card>
-          <div className="font-semibold text-sm mb-2" style={{ color: C.deep }}>Coming up</div>
-          {!upcoming.length ? <div className="text-sm" style={{ color: C.mute }}>No meetings set.</div> : (
-            <ul className="text-sm grid gap-2">{upcoming.map((p) => <li key={p.id}><b>{fmtDateTime(p.next_meeting_at, { dateStyle: "medium", timeStyle: "short" })}</b> · {p.name}: {p.next_meeting_note}</li>)}</ul>
-          )}
-        </Card>
+        <WeeklyCard projects={projects.rows} upcoming={upcoming} />
         <Card>
           <div className="font-semibold text-sm mb-2" style={{ color: C.deep }}>Updates waiting for your approval</div>
           {!(pending.rows || []).length ? <div className="text-sm" style={{ color: C.mute }}>Nothing waiting. Clients see every update you have approved.</div> : (
@@ -165,7 +203,7 @@ export default function Dashboard() {
           )}
         </Card>
         <Card>
-          <div className="font-semibold text-sm mb-2" style={{ color: C.deep }}>Meeting decisions</div>
+          <div className="font-semibold text-sm mb-2" style={{ color: C.deep }}>Decisions</div>
           {(() => {
             const open = dec.rows || [];
             const waiting = open.filter((d) => d.client_visible && !d.answer), answered = open.filter((d) => d.answer), drafts = open.filter((d) => !d.client_visible);
