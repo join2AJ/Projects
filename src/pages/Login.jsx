@@ -27,7 +27,7 @@ export default function Login() {
     if (!email) return setState(["error", "Enter your username or email"]);
     setState(["sending"]);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (!error) return setState(["idle"]);
+    if (!error) { await supabase.rpc("log_event", { kind: "sign_in" }); return setState(["idle"]); }
     const banned = /banned/i.test(error.message);
     setState(["error", banned ? "This account is switched off. Contact Ajay." : "Username or password is wrong"]);
   };

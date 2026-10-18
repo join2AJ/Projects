@@ -3,6 +3,7 @@ import { useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { useAuth, emailToLogin, signOut } from "../lib/auth.jsx";
 import { C, H1, H2, P, Box, Card } from "../components/ui.jsx";
+import { MySignIns } from "../components/activity.jsx";
 
 const fs = { border: `1px solid ${C.rule}`, background: "#fff" };
 
@@ -40,6 +41,8 @@ export default function Account() {
         <button type="submit" className="px-4 py-2 rounded text-sm font-semibold mb-3" style={{ background: C.deep, color: "#fff" }}>Change password</button>
       </form>
       {msg && <Box tone={msg[0]}>{msg[1]}</Box>}
+      <H2>Your recent sign-ins</H2>
+      <MySignIns userId={session?.user.id} />
       <P><button className="underline" style={{ color: C.mute }} onClick={signOut}>Sign out</button></P>
     </div>
   );

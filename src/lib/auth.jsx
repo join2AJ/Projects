@@ -39,7 +39,10 @@ export function AuthProvider({ children }) {
   return <AuthCtx.Provider value={state}>{children}</AuthCtx.Provider>;
 }
 
-export const signOut = () => supabase.auth.signOut();
+export const signOut = async () => {
+  await supabase.rpc("log_event", { kind: "sign_out" }); // recorded in the audit trail
+  return supabase.auth.signOut();
+};
 
 export function NotConfigured() {
   return (

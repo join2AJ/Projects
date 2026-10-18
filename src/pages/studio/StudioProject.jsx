@@ -13,6 +13,7 @@ import { C, inr, Chip, H1, H2, P, Box, Tabs, Card } from "../../components/ui.js
 import { FilesPanel, MetricsPanel, ReportPanel, Tag, ANSWER, byMeeting } from "../../components/parts.jsx";
 import { emailToLogin } from "../../lib/auth.jsx";
 import { FeesEditor } from "../../components/pricing.jsx";
+import { AuditTrail, Timeline } from "../../components/activity.jsx";
 import { draftWeekly, thisWeek, weeklyLabel, KIND_LABEL } from "../../lib/weekly.js";
 import { WEEKLY, istDate, nextWeeklyUpdate, answerBy } from "../../data/studio.js";
 
@@ -243,6 +244,7 @@ export default function StudioProject() {
     ["overview", "Overview"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"], ["time", "Time"],
     ["files", "Files"], ["requests", "Requests"], ["numbers", "Numbers"],
     ...(p.report_key && REPORTS[p.report_key] ? [["report", "Report"]] : []),
+    ["timeline", "Client timeline"], ["activity", "Activity"],
     ["access", "Client access"],
   ];
 
@@ -321,6 +323,8 @@ export default function StudioProject() {
 
       {tab === "report" && <ReportPanel reportKey={p.report_key} studio />}
 
+      {tab === "activity" && <AuditTrail projectId={id} />}
+      {tab === "timeline" && <Timeline project={p} />}
       {tab === "access" && (<>
         <P>People who can sign in and see this project. Create accounts and tick their projects on <Link className="underline" to="/studio/users" style={{ color: C.deep }}>People</Link>, then give them their username, password and this address:</P>
         <Card className="mb-4"><b style={{ userSelect: "all" }}>{window.location.origin}/login</b></Card>

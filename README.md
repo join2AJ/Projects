@@ -20,6 +20,8 @@ Only `/login` is public. Everything else needs a signed-in user.
 | `/services`, `/process`, `/account` | Signed in | Prices, how we work, change password |
 | `/studio` | Admin | Dashboard, including updates waiting for approval |
 | `/studio/pricing` | Admin | Price list: standard price, market range, why this price (clients see these), what changes the price and talking tips (private) |
+| `/studio/activity` | Admin | Audit trail across all projects: every change with IST timestamp, who, before/after; sign-ins |
+| `/security` | Signed in | How data is protected (encryption in transit and at rest, access, audit trail) |
 | `/studio/users` | Admin | People (create, edit, disable, delete, reset password, projects) and Clinics |
 | `/studio/p/<slug>` | Admin | Edit a project: overview, updates, issues, money, time, files, requests, numbers, report, access |
 | `/studio/new`, `/studio/compare`, `/studio/overheads` | Admin | New project, compare, studio running costs |
@@ -38,6 +40,22 @@ Enforced by the database (row level security), not by the website:
 
 Tested in `supabase/tests/10_access_rules.sql`.
 
+## Audit trail, timeline and encryption
+
+- **Audit trail** (migration 0007): database triggers record every insert, change and delete on project data
+  with the time, the person and their role, a plain-language summary, and before/after values. Sign-ins and
+  sign-outs are recorded too. No one can edit or delete entries through the API. The admin sees everything
+  (Activity page, and each project's Activity tab). A client sees the entries for their own projects that
+  concern things they can see, plus their own sign-ins (Account page).
+- **Client timeline** (project → Timeline): coming up (weekly update, planned items, answers needed, payments
+  due) and everything that has happened, by date, in India time.
+- **Encryption in transit:** HTTPS only (TLS 1.2/1.3) for the site, the database API and file downloads;
+  HSTS and a strict Content-Security-Policy are set in `vercel.json`.
+- **Encryption at rest:** Supabase encrypts the database and stored files with AES-256
+  ([supabase.com/security](https://supabase.com/security)); project region Mumbai (ap-south-1).
+  Passwords are stored only as bcrypt hashes. File links expire after 5 minutes.
+- **Admin to do:** Supabase → Database → Settings → enable *Enforce SSL on incoming connections*.
+
 One limit: report code (like the Tailbone audit) is part of the website's code, which every visitor
 downloads. Private analysis never goes in report code. The Tailbone "Conversion check" tab and speaker
 notes are compiled out of the live site and appear only in `npm run dev`. Use private notes for that.
@@ -47,7 +65,7 @@ notes are compiled out of the live site and appear only in `npm run dev`. Use pr
 ### 1. Database (Supabase)
 
 1. Create a Supabase project (free plan allows 2 active projects; pause one if both are used).
-2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`, `0005_weekly_updates.sql`, `0006_price_list_and_discounts.sql`
+2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`, `0005_weekly_updates.sql`, `0006_price_list_and_discounts.sql`, `0007_audit_trail.sql`
    (and `supabase/seed/price_list.sql`)
    (and `supabase/seed/tailbone_decisions.sql` for the 19 Oct meeting).
    Deploy `supabase/functions/admin-users` (Edge Functions).

@@ -35,6 +35,15 @@ function profileFields(b: Record<string, unknown>) {
   return out;
 }
 
+// Account changes are written to the audit trail here, with the admin's name (the database
+// triggers skip them because this function runs with the service key, not as the admin).
+async function audit(actor: { id: string; name: string }, action: string, summary: string, rowId: string | null, projectId: string | null = null) {
+  await admin.from("audit_log").insert({
+    actor_id: actor.id, actor_name: actor.name, actor_role: "admin", action, table_name: "profiles",
+    row_id: rowId, project_id: projectId, summary, client_visible: false,
+  });
+}
+
 async function syncProjects(email: string, projectIds: string[]) {
   const { data: now, error } = await admin.from("project_members").select("project_id").eq("email", email);
   if (error) throw error;
@@ -50,7 +59,10 @@ async function syncProjects(email: string, projectIds: string[]) {
     const r = await admin.from("project_members").insert(add.map((project_id) => ({ project_id, email, role: "client" })));
     if (r.error) throw r.error;
   }
+  return { add, drop };
 }
+
+const loginOf = (email: string) => (email.endsWith(`@${DOMAIN}`) ? email.split("@")[0] : email);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -60,8 +72,13 @@ Deno.serve(async (req) => {
   const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   const { data: who } = await admin.auth.getUser(token);
   if (!who?.user) return json(401, { error: "Sign in again" });
-  const { data: me } = await admin.from("profiles").select("is_owner,status").eq("id", who.user.id).single();
+  const { data: me } = await admin.from("profiles").select("is_owner,status,full_name,email").eq("id", who.user.id).single();
   if (!me?.is_owner || me.status !== "active") return json(403, { error: "Only the admin can manage users" });
+  const actor = { id: who.user.id, name: me.full_name || me.email };
+  const logAccess = async (email: string, ch: { add: string[]; drop: string[] }) => {
+    for (const pid of ch.add) await audit(actor, "access.grant", `Gave ${loginOf(email)} access to the project`, email, pid);
+    for (const pid of ch.drop) await audit(actor, "access.remove", `Removed ${loginOf(email)}'s access to the project`, email, pid);
+  };
 
   let b: Record<string, any>;
   try { b = await req.json(); } catch { return json(400, { error: "Bad request" }); }
@@ -98,7 +115,8 @@ Deno.serve(async (req) => {
         if (error) return json(400, { error: error.message.includes("already") ? "That login is already taken" : error.message });
         const r = await admin.from("profiles").update(profileFields(b)).eq("id", data.user.id);
         if (r.error) throw r.error;
-        if (Array.isArray(b.project_ids)) await syncProjects(email, b.project_ids);
+        await audit(actor, "user.create", `Created account ${loginOf(email)} (${b.is_owner ? "admin" : "client"}${b.status === "disabled" ? ", disabled" : ""})`, data.user.id);
+        if (Array.isArray(b.project_ids)) await logAccess(email, await syncProjects(email, b.project_ids));
         return json(200, { id: data.user.id });
       }
 
@@ -118,9 +136,18 @@ Deno.serve(async (req) => {
           const r = await admin.auth.admin.updateUserById(b.id, attrs);
           if (r.error) return json(400, { error: r.error.message });
         }
+        const { data: before } = await admin.from("profiles").select("*").eq("id", b.id).single();
         const r = await admin.from("profiles").update(profileFields(b)).eq("id", b.id);
         if (r.error) throw r.error;
-        if (Array.isArray(b.project_ids)) await syncProjects(u.user.email!, b.project_ids);
+        const changed = Object.keys(profileFields(b)).filter((k) => k !== "updated_at" && before && String(before[k] ?? "") !== String(profileFields(b)[k] ?? ""));
+        const what = [
+          ...(b.password ? ["password reset"] : []),
+          ...(changed.includes("status") ? [b.status === "disabled" ? "disabled" : "enabled"] : []),
+          ...(changed.includes("is_owner") ? [b.is_owner ? "made admin" : "made client"] : []),
+          ...changed.filter((k) => !["status", "is_owner"].includes(k)).map((k) => k.replace("_", " ")),
+        ];
+        if (what.length) await audit(actor, "user.update", `Updated account ${loginOf(u.user.email!)}: ${what.join(", ")}`, b.id);
+        if (Array.isArray(b.project_ids)) await logAccess(u.user.email!, await syncProjects(u.user.email!, b.project_ids));
         return json(200, { ok: true });
       }
 
@@ -131,6 +158,7 @@ Deno.serve(async (req) => {
         if (u?.user?.email) await admin.from("project_members").delete().eq("email", u.user.email);
         const r = await admin.auth.admin.deleteUser(b.id);
         if (r.error) return json(400, { error: r.error.message });
+        await audit(actor, "user.delete", `Deleted account ${loginOf(u?.user?.email || b.id)}`, b.id);
         return json(200, { ok: true });
       }
 

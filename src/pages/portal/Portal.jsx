@@ -9,6 +9,7 @@ import { OFFBOARDING } from "../../data/studio.js";
 import { C, H1, H2, P, Box, T, Tabs, Card } from "../../components/ui.jsx";
 import { StageBar, UpdatesList, IssuesList, DueBanner, MoneyClient, MetricsPanel, FilesPanel, RequestsClient, ReportPanel, DecisionsClient, DecisionsBanner, TimetableBox } from "../../components/parts.jsx";
 import { REPORTS } from "../../projects/reports.js";
+import { Timeline } from "../../components/activity.jsx";
 
 export function Portal() {
   const { session, profile } = useAuth();
@@ -63,7 +64,7 @@ export function PortalProject() {
   const p = rows[0];
   if (!p) return <Box tone="warn" title="Project not found">This project is not shared with your email. <Link to="/portal" className="underline">Your projects</Link></Box>;
   const tabs = [
-    ["overview", "Overview"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"],
+    ["overview", "Overview"], ["timeline", "Timeline"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"],
     ["files", "Files"], ["requests", "Requests"], ["numbers", "Numbers"],
     ...(p.report_key && REPORTS[p.report_key] ? [["report", REPORTS[p.report_key].label]] : []),
     ["handover", "Handover"],
@@ -77,6 +78,7 @@ export function PortalProject() {
       <Tabs label="Project sections" tabs={tabs} value={tab} onChange={setTab} />
       {tab === "overview" && <Overview p={p} go={setTab} />}
       {tab === "decisions" && <DecisionsClient projectId={p.id} />}
+      {tab === "timeline" && <Timeline project={p} />}
       {tab === "updates" && <UpdatesList projectId={p.id} />}
       {tab === "issues" && <IssuesList projectId={p.id} />}
       {tab === "money" && <MoneyClient projectId={p.id} />}
