@@ -11,6 +11,7 @@ import { REPORTS } from "../../projects/reports.js";
 import Editor from "../../components/Editor.jsx";
 import { C, inr, Chip, H1, H2, P, Box, Tabs, Card } from "../../components/ui.jsx";
 import { FilesPanel, MetricsPanel, ReportPanel, Tag } from "../../components/parts.jsx";
+import { emailToLogin } from "../../lib/auth.jsx";
 
 const field = "mt-1 w-full px-2 py-1.5 rounded text-sm";
 const fs = { border: `1px solid ${C.rule}`, background: "#fff" };
@@ -128,6 +129,18 @@ function MetricsImport({ projectId, onDone }) {
   );
 }
 
+/* Approve an update for the client, or take it back. */
+export function Approve({ row, reload }) {
+  const go = async (yes) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from("updates").update(yes ? { client_visible: true, approved_at: new Date().toISOString(), approved_by: user.id } : { client_visible: false, approved_at: null, approved_by: null }).eq("id", row.id);
+    reload();
+  };
+  return row.client_visible
+    ? <button className="mr-2 underline" style={{ color: C.mute }} onClick={() => go(false)}>Unapprove</button>
+    : <button className="mr-2 underline font-semibold" style={{ color: C.good }} onClick={() => go(true)}>Approve</button>;
+}
+
 function MarkPaid({ inv, reload }) {
   if (inv.status === "paid" || inv.status === "void") return null;
   const go = async (status) => {
@@ -182,7 +195,10 @@ export default function StudioProject() {
 
       {tab === "updates" && <Editor table="updates" projectId={id} fields={FIELDS.updates} order={["happened_on", false]}
         defaults={{ ...defaultsFor("updates"), happened_on: today(), kind: "work", status: "Done" }}
-        columns={[col("updates", "happened_on"), col("updates", "kind"), col("updates", "title"), col("updates", "status"), ["Client sees", (r) => (r.client_visible ? "Yes" : <Chip key="p" tone="info">Private note</Chip>)]]} />}
+        columns={[col("updates", "happened_on"), col("updates", "kind"), col("updates", "title"), col("updates", "status"),
+          ["Client", (r) => (r.client_visible ? <Chip key="a" tone="good">Approved</Chip> : <Chip key="p" tone="warn">Waiting for approval</Chip>)]]}
+        extra={(r, reload) => <Approve row={r} reload={reload} />} />}
+      {tab === "updates" && <P style={{ color: C.mute }}>New updates stay private until you approve them. Approved updates show on the client’s page straight away.</P>}
 
       {tab === "issues" && <Editor table="issues" projectId={id} fields={FIELDS.issues} order={["sort", true]}
         defaults={{ ...defaultsFor("issues"), severity: "medium", status: "open", owner: "me", raised_on: today(), sort: 100 }}
@@ -223,9 +239,10 @@ export default function StudioProject() {
       {tab === "report" && <ReportPanel reportKey={p.report_key} studio />}
 
       {tab === "access" && (<>
-        <P>Add the email your client will sign in with. They get access the moment you save. Nothing is emailed by this step, so send them the link yourself:</P>
+        <P>People who can sign in and see this project. Create accounts and tick their projects on <Link className="underline" to="/studio/users" style={{ color: C.deep }}>People</Link>, then give them their username, password and this address:</P>
         <Card className="mb-4"><b style={{ userSelect: "all" }}>{window.location.origin}/login</b></Card>
-        <Editor table="project_members" projectId={id} fields={FIELDS.project_members} order={["added_at", true]} defaults={{ role: "client" }} empty="Nobody has access yet." />
+        <Editor table="project_members" projectId={id} fields={FIELDS.project_members} order={["added_at", true]} defaults={{ role: "client" }} canAdd={false}
+          columns={[["Signs in as", (r) => emailToLogin(r.email)], ["Name", (r) => r.name || "–"], ["Role", (r) => r.role]]} empty="Nobody has access yet. Add someone on People." />
         <P style={{ color: C.mute }}>To see the page as they do, open <Link className="underline" to={`/portal/p/${p.slug}`}>the client view</Link>. It shows only what is marked for the client.</P>
       </>)}
     </div>

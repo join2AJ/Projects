@@ -44,6 +44,7 @@ export default function Dashboard() {
   const time = useRows(() => supabase.from("time_entries").select("*"), []);
   const svc = useRows(() => supabase.from("project_services").select("*"), []);
   const req = useRows(() => supabase.from("requests").select("*").in("status", ["new", "accepted", "in_progress"]).order("created_at", { ascending: false }), []);
+  const pending = useRows(() => supabase.from("updates").select("id,project_id,title,happened_on").eq("client_visible", false).neq("kind", "note").order("happened_on", { ascending: false }), []);
   const iss = useRows(() => supabase.from("issues").select("id,project_id,title,severity,status,owner").in("status", ["open", "in_progress", "waiting_client", "blocked"]), []);
 
   const k = useMemo(() => {
@@ -96,6 +97,7 @@ export default function Dashboard() {
         <H1>How the studio is doing</H1>
         <div className="text-sm flex gap-4">
           <Link to="/studio/new" style={{ color: C.deep, fontWeight: 600 }}>+ New project</Link>
+          <Link to="/studio/users" style={{ color: C.deep }}>People and clinics</Link>
           <Link to="/studio/compare" style={{ color: C.deep }}>Compare</Link>
           <Link to="/studio/overheads" style={{ color: C.deep }}>Overheads</Link>
           <button className="underline" style={{ color: C.mute }} onClick={signOut}>Sign out</button>
@@ -147,6 +149,18 @@ export default function Dashboard() {
           <div className="font-semibold text-sm mb-2" style={{ color: C.deep }}>Coming up</div>
           {!upcoming.length ? <div className="text-sm" style={{ color: C.mute }}>No meetings set.</div> : (
             <ul className="text-sm grid gap-2">{upcoming.map((p) => <li key={p.id}><b>{fmtDateTime(p.next_meeting_at, { dateStyle: "medium", timeStyle: "short" })}</b> · {p.name}: {p.next_meeting_note}</li>)}</ul>
+          )}
+        </Card>
+        <Card>
+          <div className="font-semibold text-sm mb-2" style={{ color: C.deep }}>Updates waiting for your approval</div>
+          {!(pending.rows || []).length ? <div className="text-sm" style={{ color: C.mute }}>Nothing waiting. Clients see every update you have approved.</div> : (
+            <ul className="text-sm grid gap-1">
+              {pending.rows.slice(0, 6).map((u) => {
+                const p = projects.rows.find((x) => x.id === u.project_id);
+                return <li key={u.id}><Link to={`/studio/p/${p?.slug}`} className="underline" style={{ color: C.deep }}>{p?.name}</Link>: {u.title} <span className="text-xs" style={{ color: C.mute }}>{fmtDate(u.happened_on)}</span></li>;
+              })}
+              {pending.rows.length > 6 && <li className="text-xs" style={{ color: C.mute }}>and {pending.rows.length - 6} more</li>}
+            </ul>
           )}
         </Card>
         <Card>

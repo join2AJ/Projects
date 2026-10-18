@@ -2,15 +2,29 @@
 import { SERVICES } from "../data/studio.js";
 
 const visible = (def = true) => ({ key: "client_visible", label: "Client can see this", type: "bool", hidden: true, def });
+const approved = () => ({ key: "client_visible", label: "Approved: client can see this", type: "bool", hidden: true, def: false });
+
+export const CLIENT_STATUS = ["active", "lead", "paused", "past"];
 
 export const FIELDS = {
+  clients: [
+    { key: "name", label: "Client / doctor name", required: true },
+    { key: "org", label: "Clinic or business" },
+    { key: "status", label: "Status", type: "select", required: true, options: CLIENT_STATUS },
+    { key: "phone", label: "Phone" },
+    { key: "email", label: "Email", type: "email", lower: true },
+    { key: "city", label: "City" },
+    { key: "address", label: "Address", type: "textarea", hidden: true },
+    { key: "gstin", label: "GSTIN", hidden: true },
+    { key: "notes", label: "Notes (private)", type: "textarea", hidden: true },
+  ],
   updates: [
     { key: "happened_on", label: "Date", type: "date", required: true },
     { key: "kind", label: "Type", type: "select", required: true, options: ["work", "milestone", "meeting", "decision", "note"] },
     { key: "title", label: "Title", required: true },
     { key: "status", label: "Status", type: "select", required: true, options: ["Done", "In progress", "Scheduled", "Blocked"] },
     { key: "body", label: "Details", type: "textarea" },
-    visible(),
+    approved(),
   ],
   issues: [
     { key: "title", label: "Issue", required: true },
