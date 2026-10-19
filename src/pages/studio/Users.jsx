@@ -27,7 +27,7 @@ const F = ({ label, children, wide }) => <label className={`block text-xs mb-3 $
 export const inviteText = ({ name, login, password }) => [
   `Hello ${(name || "").split(" ")[0] || "there"},`,
   "",
-  "Your project portal is ready. Everything about your project is in one place: weekly updates (Tuesdays, 11:00 IST), decisions for you to answer, issues, fees and invoices, files, reports and a full timeline.",
+  "Your project portal is ready. Everything about your project is in one place: weekly updates (Tuesdays, 11:00 IST), decisions for you to answer, issues, files, reports and a full timeline.",
   "",
   `Sign in: ${window.location.origin}/login`,
   `Username: ${login}`,

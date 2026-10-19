@@ -21,6 +21,28 @@ const btn = (bg = C.deep) => ({ background: bg, color: "#fff" });
 const toIstInput = (d) => new Date(d.getTime() + 330 * 6e4).toISOString().slice(0, 16);
 const fromIstInput = (v) => new Date(`${v}:00+05:30`);
 
+/* ───────── fees shown to the client, or "coming soon" (admin) ───────── */
+export function MoneySwitch({ project, onChange }) {
+  const [busy, setBusy] = useState(false);
+  const flip = async () => {
+    setBusy(true);
+    await supabase.from("projects").update({ money_open: !project.money_open }).eq("id", project.id);
+    setBusy(false); onChange?.();
+  };
+  return (
+    <Card className="mb-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex-1 text-sm" style={{ minWidth: 0 }}>
+          <b style={{ color: C.deep }}>Client’s Money tab: </b>
+          {project.money_open ? <><Chip tone="good">Shown</Chip> They see their fees, can approve or suggest a price, and see sent invoices.</>
+            : <><Chip tone="warn">Coming soon</Chip> They see “Coming soon”. No fees, prices or invoices are shown, and fee changes stay out of their timeline.</>}
+        </div>
+        <button disabled={busy} onClick={flip} className="px-3 py-1 rounded text-sm font-semibold" style={btn()}>{project.money_open ? "Hide: coming soon" : "Show fees to the client"}</button>
+      </div>
+    </Card>
+  );
+}
+
 /* ───────── update schedule (admin) ───────── */
 export function ScheduleEditor({ projectId, onChange }) {
   const { rows, reload } = useRows(() => supabase.from("schedule_changes").select("*").order("slot_at"), []);
@@ -399,7 +421,11 @@ export function YourData({ project }) {
     const pid = project.id;
     const tables = ["updates", "issues", "decisions", "requests", "request_messages", "project_services", "invoices", "expenses", "files", "metrics"];
     const out = { exported_at: new Date().toISOString(), notice_version: PRIVACY_VERSION, profile, project };
-    for (const t of tables) { const { data } = await supabase.from(t).select("*").eq("project_id", pid); out[t] = data || []; }
+    for (const t of tables) {
+      if (!project.money_open && t === "invoices") { out[t] = []; continue; }
+      const { data } = await supabase.from(t).select("*").eq("project_id", pid);
+      out[t] = !project.money_open && t === "project_services" ? (data || []).map(({ id, name, kind, status, note }) => ({ id, name, kind, status, note })) : data || [];
+    }
     out.activity = (await supabase.from("audit_log").select("at,actor_name,summary").or(`project_id.eq.${pid},actor_id.eq.${session.user.id}`).order("at")).data || [];
     out.consents = consents.rows || [];
     const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });

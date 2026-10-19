@@ -15,7 +15,7 @@ import { emailToLogin } from "../../lib/auth.jsx";
 import { FeesEditor } from "../../components/pricing.jsx";
 import { AuditTrail, Timeline } from "../../components/activity.jsx";
 import { draftWeekly, thisWeek, weeklyLabel, KIND_LABEL, loadChanges } from "../../lib/weekly.js";
-import { ScheduleEditor, RequestThreads, CredentialsPanel, WorkLog } from "../../components/collab.jsx";
+import { ScheduleEditor, RequestThreads, CredentialsPanel, WorkLog, MoneySwitch } from "../../components/collab.jsx";
 import { WEEKLY, answerBy } from "../../data/studio.js";
 
 const field = "mt-1 w-full px-2 py-1.5 rounded text-sm";
@@ -264,6 +264,7 @@ export default function StudioProject() {
       {tab === "overview" && (<>
         <ProjectForm key={p.id + p.slug} initial={p} onSaved={(d) => (d.slug !== slug ? nav(`/studio/p/${d.slug}`, { replace: true }) : reload())} />
         <H2>Services and fees</H2>
+        <MoneySwitch project={p} onChange={reload} />
         <FeesEditor projectId={id} />
       </>)}
 
@@ -295,6 +296,7 @@ export default function StudioProject() {
         columns={[["Severity", (r) => <Tag key="s" v={r.severity} />], col("issues", "title"), ["Status", (r) => <Tag key="t" v={r.status} />], col("issues", "owner")]} />}
 
       {tab === "money" && (<>
+        <MoneySwitch project={p} onChange={reload} />
         <Editor key={`inv${bump}`} title="Invoices" table="invoices" projectId={id} fields={FIELDS.invoices} order={["issued_on", false]}
           defaults={{ number: nextNumber, issued_on: today(), due_on: new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10), status: "draft", gst: 0 }}
           columns={[col("invoices", "number"), col("invoices", "description"), ["Total", (r) => inr(total(r))], ["Status", (r) => { const [l, t] = invoiceState(r); return <Chip key="s" tone={t}>{l}</Chip>; }]]}

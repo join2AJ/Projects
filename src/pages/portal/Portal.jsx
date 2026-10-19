@@ -38,7 +38,7 @@ function Overview({ p, go }) {
     <div>
       <H1>{p.name}</H1>
       <P>{p.summary} {p.brief}</P>
-      <DueBanner projectId={p.id} />
+      {p.money_open && <DueBanner projectId={p.id} />}
       <DecisionsBanner projectId={p.id} onOpen={() => go("decisions")} />
       <TimetableBox projectId={p.id} extra={{ at: p.next_meeting_at, note: p.next_meeting_note }} />
       <H2>Where we are</H2>
@@ -78,7 +78,11 @@ export function PortalProject() {
       {tab === "timeline" && <Timeline project={p} />}
       {tab === "updates" && <UpdatesList projectId={p.id} />}
       {tab === "issues" && <IssuesList projectId={p.id} />}
-      {tab === "money" && <MoneyClient projectId={p.id} />}
+      {tab === "money" && (p.money_open ? <MoneyClient projectId={p.id} /> : (
+        <Box tone="info" title="Coming soon">
+          Your fees and payments will appear here once we have agreed the scope together. Nothing is charged until then.
+        </Box>
+      ))}
       {tab === "files" && <FilesPanel projectId={p.id} />}
       {tab === "requests" && <RequestThreads projectId={p.id} />}
       {tab === "work" && <WorkLog projectId={p.id} reportKey={p.report_key} onOpenReport={() => setTab("report")} />}

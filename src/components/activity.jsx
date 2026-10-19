@@ -111,7 +111,7 @@ export function Timeline({ project }) {
     ...weeks,
     ...upd.rows.filter((u) => u.status === "Scheduled" && u.happened_on >= now).map((u) => ({ day: u.happened_on, what: u.title, kind: "plan" })),
     ...dec.rows.filter((d) => !d.answer && d.due_on).map((d) => ({ day: d.due_on, what: `Your answer needed: ${d.question}`, kind: "you" })),
-    ...inv.rows.map((i) => ({ day: i.due_on, what: `Payment due: invoice ${i.number}`, kind: "you" })),
+    ...(project.money_open === false ? [] : inv.rows.map((i) => ({ day: i.due_on, what: `Payment due: invoice ${i.number}`, kind: "you" }))),
   ];
   // The extra one-off update, unless a planned item already covers that day
   if (project.next_meeting_at && new Date(project.next_meeting_at) > new Date()) {

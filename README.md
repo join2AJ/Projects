@@ -83,7 +83,7 @@ notes are compiled out of the live site and appear only in `npm run dev`. Use pr
 ### 1. Database (Supabase)
 
 1. Create a Supabase project (free plan allows 2 active projects; pause one if both are used).
-2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`, `0005_weekly_updates.sql`, `0006_price_list_and_discounts.sql`, `0007_audit_trail.sql`, `0008_schedule_threads_fees_privacy.sql`, `0009_credentials_vault.sql`, `0010_schedule_changes_private.sql`, `0011_respond_fee_done_work.sql`
+2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`, `0005_weekly_updates.sql`, `0006_price_list_and_discounts.sql`, `0007_audit_trail.sql`, `0008_schedule_threads_fees_privacy.sql`, `0009_credentials_vault.sql`, `0010_schedule_changes_private.sql`, `0011_respond_fee_done_work.sql`, `0012_money_coming_soon.sql`
    (and `supabase/seed/price_list.sql`)
    (and `supabase/seed/tailbone_decisions.sql` for the 19 Oct meeting).
    Deploy `supabase/functions/admin-users` (Edge Functions).
@@ -132,6 +132,9 @@ username, password and the `/login` address yourself.
   shows your standard, the market range, whether the fee is below/within/above market, and your tips. The
   client sees only the fee, and either **approves** it or **suggests their own price** with a note. Their answer
   shows in the “Client says” column; **Accept ₹X** takes their price. Changing a fee asks them again.
+- **Fees not agreed yet?** Project → Overview (or Money) → **Hide: coming soon**. The client's Money tab says
+  “Coming soon”: no fees, prices or invoices, they cannot answer fees, and fee changes stay out of their timeline
+  and data download. **Show fees to the client** when you have agreed them together.
 - **Requests:** a conversation per request. Both sides reply; you set the status. Nothing can be edited or deleted.
 - **Work done:** project → Work done → **Log work** for each audit, report or piece of work (approve it on
   Updates for the client to see). Done work and milestones, the report and report files are listed in one place.
