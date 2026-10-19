@@ -83,7 +83,7 @@ notes are compiled out of the live site and appear only in `npm run dev`. Use pr
 ### 1. Database (Supabase)
 
 1. Create a Supabase project (free plan allows 2 active projects; pause one if both are used).
-2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`, `0005_weekly_updates.sql`, `0006_price_list_and_discounts.sql`, `0007_audit_trail.sql`, `0008_schedule_threads_fees_privacy.sql`, `0009_credentials_vault.sql`, `0010_schedule_changes_private.sql`, `0011_respond_fee_done_work.sql`, `0012_money_coming_soon.sql`, `0013_meetings_drafts_page_views.sql`
+2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`, `0005_weekly_updates.sql`, `0006_price_list_and_discounts.sql`, `0007_audit_trail.sql`, `0008_schedule_threads_fees_privacy.sql`, `0009_credentials_vault.sql`, `0010_schedule_changes_private.sql`, `0011_respond_fee_done_work.sql`, `0012_money_coming_soon.sql`, `0013_meetings_drafts_page_views.sql`, `0014_meeting_items_share.sql`
    (and `supabase/seed/price_list.sql`)
    (and `supabase/seed/tailbone_decisions.sql` for the 19 Oct meeting).
    Deploy `supabase/functions/admin-users` (Edge Functions).
@@ -135,8 +135,9 @@ username, password and the `/login` address yourself.
 - **Fees not agreed yet?** Project → Overview (or Money) → **Hide: coming soon**. The client's Money tab says
   “Coming soon”: no fees, prices or invoices, they cannot answer fees, and fee changes stay out of their timeline
   and data download. **Show fees to the client** when you have agreed them together.
-- **After a call:** project → Meetings → **Add meeting notes**, then add discussion points, action points (who, by
-  when; mark Done or Drop) and workable points. Private until **Share with client**; **Copy for WhatsApp** gives a
+- **After a call:** project → Meetings → **Add meeting notes**, then add (and later Edit or Delete) discussion points, action points (who, by
+  when; Done or Drop) and workable points (Noted, Working on it, Done). Mark each point **Share** (or Share all), then
+  **Share with client**: the client sees only the shared points. **Copy shared points for WhatsApp** gives a
   ready list. Open action points across projects show on the dashboard.
 - **What the client views:** project → What the client views. Pages and sections opened, with time there, by date,
   weekday or hour; filter by person, section and dates; plus what they did. Your own views are not recorded.

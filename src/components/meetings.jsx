@@ -11,7 +11,10 @@ import { C, Chip, P, Card } from "./ui.jsx";
 export const KINDS = [["discussion", "Discussion points"], ["action", "Action points"], ["workable", "Workable points"]];
 const OWNER = { me: "Ajay", client: "You", both: "Both" };
 const OWNER_ADMIN = { me: "Me", client: "Client", both: "Both" };
-const STATUS = { open: ["Open", "warn"], done: ["Done", "good"], dropped: ["Dropped", "info"] };
+// Action points: open → done. Workable points: noted → working on it → done. Either can be dropped.
+const STATUS = { open: ["Open", "warn"], in_progress: ["Working on it", "info"], done: ["Done", "good"], dropped: ["Dropped", "info"] };
+const statusLabel = (i) => (i.kind === "workable" && i.status === "open" ? ["Noted", "info"] : STATUS[i.status]);
+const NEXT = { action: [["open", "Open"], ["done", "Done"], ["dropped", "Drop"]], workable: [["open", "Noted"], ["in_progress", "Working on it"], ["done", "Done"], ["dropped", "Drop"]], discussion: [] };
 const input = "mt-1 w-full px-2 py-1.5 rounded text-sm";
 const fs = { border: `1px solid ${C.rule}`, background: "#fff" };
 const btn = { background: C.deep, color: "#fff" };
@@ -20,36 +23,80 @@ const todayIst = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/
 /* WhatsApp-ready text of one meeting. */
 export const meetingText = (m, items, client = false) => {
   const who = client ? OWNER : OWNER_ADMIN;
+  if (client) items = items.filter((i) => i.client_visible);
   const lines = [`${m.title} (${fmtDate(m.held_on)}${m.channel ? `, ${m.channel}` : ""})`];
   if (m.summary) lines.push("", m.summary);
   for (const [k, label] of KINDS) {
     const list = items.filter((i) => i.kind === k && i.status !== "dropped");
     if (!list.length) continue;
     lines.push("", label);
-    list.forEach((i, n) => lines.push(`${n + 1}. ${i.body}${i.owner ? ` [${who[i.owner]}${i.due_on ? `, by ${fmtDate(i.due_on)}` : ""}]` : ""}${i.status === "done" ? " ✓" : ""}`));
+    list.forEach((i, n) => lines.push(`${n + 1}. ${i.body}${i.owner ? ` [${who[i.owner]}${i.due_on ? `, by ${fmtDate(i.due_on)}` : ""}]` : ""}${i.kind !== "discussion" && i.status !== "open" ? ` (${statusLabel(i)[0]})` : ""}`));
   }
   return lines.join("\n");
 };
 
+function ItemForm({ item, meetingId, kind, onDone }) {
+  const [f, setF] = useState(item || { kind, body: "", owner: kind === "action" ? "me" : "", due_on: "", client_visible: false });
+  const [msg, setMsg] = useState(null);
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
+  const save = async (e) => {
+    e.preventDefault();
+    const body = { kind: f.kind, body: f.body, owner: f.owner || null, due_on: f.due_on || null, client_visible: !!f.client_visible };
+    const { error } = item ? await supabase.from("meeting_items").update(body).eq("id", item.id) : await supabase.from("meeting_items").insert({ ...body, meeting_id: meetingId });
+    if (error) return setMsg(error.message);
+    onDone();
+  };
+  return (
+    <form onSubmit={save} className="grid gap-2 md:grid-cols-6 items-end my-2 p-2" style={{ background: C.bg, borderRadius: 4 }}>
+      <label className="block text-xs md:col-span-6" style={{ color: C.mute }}>Point
+        <textarea name="body" required maxLength={2000} rows={2} autoFocus value={f.body} onChange={set("body")} className={input} style={fs} />
+      </label>
+      <label className="block text-xs" style={{ color: C.mute }}>Type
+        <select name="kind" value={f.kind} onChange={set("kind")} className={input} style={fs}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l.replace(" points", "")}</option>)}</select>
+      </label>
+      <label className="block text-xs" style={{ color: C.mute }}>Who
+        <select name="owner" value={f.owner || ""} onChange={set("owner")} className={input} style={fs}><option value="">—</option><option value="me">Me</option><option value="client">Client</option><option value="both">Both</option></select>
+      </label>
+      <label className="block text-xs" style={{ color: C.mute }}>By<input name="due_on" type="date" value={f.due_on || ""} onChange={set("due_on")} className={input} style={fs} /></label>
+      <label className="flex items-center gap-2 text-sm md:col-span-2 pb-1"><input type="checkbox" checked={!!f.client_visible} onChange={set("client_visible")} /> Share with client</label>
+      <div className="flex gap-2 items-center pb-1">
+        <button type="submit" className="px-3 py-1 rounded text-sm font-semibold" style={btn}>Save</button>
+        <button type="button" className="text-xs underline" onClick={onDone}>Cancel</button>
+      </div>
+      {msg && <div className="text-xs md:col-span-6" style={{ color: C.bad }}>{msg}</div>}
+    </form>
+  );
+}
+
 function Items({ list, admin, onChange }) {
+  const [edit, setEdit] = useState(null);
+  const [confirm, setConfirm] = useState(null);
   const set = async (i, patch) => { await supabase.from("meeting_items").update(patch).eq("id", i.id); onChange(); };
+  const remove = async (i) => { await supabase.from("meeting_items").delete().eq("id", i.id); setConfirm(null); onChange(); };
   return (
     <ol className="text-sm pl-5" style={{ listStyle: "decimal", lineHeight: 1.6 }}>
-      {list.map((i) => (
+      {list.map((i) => edit === i.id ? (
+        <li key={i.id}><ItemForm item={i} onDone={() => { setEdit(null); onChange(); }} /></li>
+      ) : (
         <li key={i.id} className="py-1" style={{ opacity: i.status === "dropped" ? 0.5 : 1 }}>
           <span style={{ textDecoration: i.status === "done" && i.kind === "action" ? "line-through" : "none" }}>{i.body}</span>
-          {(i.owner || i.due_on || i.kind === "action") && (
-            <span className="ml-2 text-xs whitespace-nowrap" style={{ color: C.mute }}>
-              {i.owner && <b>{(admin ? OWNER_ADMIN : OWNER)[i.owner]}</b>}{i.due_on && ` · by ${fmtDate(i.due_on)}`}{" "}
-              {i.kind === "action" && <Chip tone={STATUS[i.status][1]}>{STATUS[i.status][0]}</Chip>}
-            </span>
-          )}
+          <span className="ml-2 text-xs" style={{ color: C.mute }}>
+            {i.owner && <b>{(admin ? OWNER_ADMIN : OWNER)[i.owner]}</b>}{i.due_on && ` · by ${fmtDate(i.due_on)}`}{" "}
+            {i.kind !== "discussion" && <Chip tone={statusLabel(i)[1]}>{statusLabel(i)[0]}</Chip>}
+          </span>
           {admin && (
-            <span className="ml-2 text-xs whitespace-nowrap">
-              {i.status !== "done" && <button className="underline mr-2" style={{ color: C.good }} onClick={() => set(i, { status: "done" })}>Done</button>}
-              {i.status !== "open" && <button className="underline mr-2" style={{ color: C.deep }} onClick={() => set(i, { status: "open" })}>Reopen</button>}
-              {i.status === "open" && <button className="underline" style={{ color: C.mute }} onClick={() => set(i, { status: "dropped" })}>Drop</button>}
-            </span>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 items-center text-xs mt-0.5">
+              <button onClick={() => set(i, { client_visible: !i.client_visible })} aria-pressed={i.client_visible}
+                className="px-1.5 py-0.5 rounded font-semibold" style={i.client_visible ? { background: C.goodBg, color: C.good } : { border: `1px solid ${C.rule}`, color: C.mute }}>
+                {i.client_visible ? "✓ Shared" : "Share"}
+              </button>
+              {NEXT[i.kind].filter(([k]) => k !== i.status).map(([k, l]) => (
+                <button key={k} className="underline" style={{ color: k === "done" ? C.good : k === "dropped" ? C.mute : C.deep }} onClick={() => set(i, { status: k })}>{l}</button>
+              ))}
+              <button className="underline" style={{ color: C.deep }} onClick={() => setEdit(i.id)}>Edit</button>
+              {confirm === i.id ? <button className="underline" style={{ color: C.bad }} onClick={() => remove(i)}>Confirm delete</button>
+                : <button className="underline" style={{ color: C.mute }} onClick={() => setConfirm(i.id)}>Delete</button>}
+            </div>
           )}
         </li>
       ))}
@@ -59,26 +106,8 @@ function Items({ list, admin, onChange }) {
 
 function AddItem({ meetingId, kind, onAdded }) {
   const [open, setOpen] = useState(false);
-  const [msg, setMsg] = useState(null);
-  const add = async (e) => {
-    e.preventDefault();
-    const d = Object.fromEntries(new FormData(e.target));
-    const { error } = await supabase.from("meeting_items").insert({ meeting_id: meetingId, kind, body: d.body, owner: d.owner || null, due_on: d.due_on || null });
-    if (error) return setMsg(error.message);
-    e.target.reset(); setMsg(null); onAdded();
-  };
   if (!open) return <button className="text-xs underline" style={{ color: C.deep }} onClick={() => setOpen(true)}>+ Add</button>;
-  return (
-    <form onSubmit={add} className="grid gap-2 md:grid-cols-6 items-end mt-1">
-      <label className="block text-xs md:col-span-3" style={{ color: C.mute }}>Point<input name="body" required maxLength={2000} autoFocus className={input} style={fs} /></label>
-      <label className="block text-xs" style={{ color: C.mute }}>Who
-        <select name="owner" defaultValue={kind === "action" ? "me" : ""} className={input} style={fs}><option value="">—</option><option value="me">Me</option><option value="client">Client</option><option value="both">Both</option></select>
-      </label>
-      <label className="block text-xs" style={{ color: C.mute }}>By<input name="due_on" type="date" className={input} style={fs} /></label>
-      <div className="flex gap-2"><button type="submit" className="px-3 py-1.5 rounded text-sm font-semibold" style={btn}>Add</button><button type="button" className="text-xs underline" onClick={() => setOpen(false)}>Close</button></div>
-      {msg && <div className="text-xs md:col-span-6" style={{ color: C.bad }}>{msg}</div>}
-    </form>
-  );
+  return <ItemForm meetingId={meetingId} kind={kind} onDone={() => { setOpen(false); onAdded(); }} />;
 }
 
 function MeetingForm({ projectId, m, onDone }) {
@@ -113,21 +142,28 @@ function Meeting({ m, items, admin, onChange, onEdit }) {
   const share = async () => { await supabase.from("meetings").update({ client_visible: !m.client_visible }).eq("id", m.id); onChange(); };
   const copy = async () => { try { await navigator.clipboard.writeText(meetingText(m, mine, true)); setCopied(true); } catch { setCopied(false); } };
   const open = mine.filter((i) => i.kind === "action" && i.status === "open").length;
+  const shared = mine.filter((i) => i.client_visible).length;
+  const shareAll = async (k, on) => { await supabase.from("meeting_items").update({ client_visible: on }).eq("meeting_id", m.id).eq("kind", k); onChange(); };
   return (
     <Card className="mb-4">
       <div className="flex flex-wrap items-baseline gap-2 mb-1">
         <span className="font-semibold flex-1" style={{ color: C.deep, minWidth: 0 }}>{m.title}</span>
         <span className="text-xs" style={{ color: C.mute }}>{fmtDate(m.held_on)}{m.channel ? ` · ${m.channel}` : ""}</span>
         {admin && (m.client_visible ? <Chip tone="good">Shared</Chip> : <Chip tone="warn">Private draft</Chip>)}
+        {admin && <Chip tone="info">{shared} of {mine.length} points shared</Chip>}
         {open > 0 && <Chip tone="warn">{open} action{open > 1 ? "s" : ""} open</Chip>}
       </div>
       {m.summary && <P style={{ color: C.mute }}>{m.summary}</P>}
       {KINDS.map(([k, label]) => {
         const list = mine.filter((i) => i.kind === k && (admin || i.status !== "dropped"));
         if (!admin && !list.length) return null;
+        const all = list.length > 0 && list.every((i) => i.client_visible);
         return (
           <div key={k} className="mt-3">
-            <div className="text-sm font-semibold mb-1" style={{ color: C.ink }}>{label}</div>
+            <div className="flex flex-wrap items-baseline gap-3 mb-1">
+              <span className="text-sm font-semibold" style={{ color: C.ink }}>{label}</span>
+              {admin && list.length > 0 && <button className="text-xs underline" style={{ color: C.deep }} onClick={() => shareAll(k, !all)}>{all ? "Unshare all" : "Share all"}</button>}
+            </div>
             {list.length ? <Items list={list} admin={admin} onChange={onChange} /> : <div className="text-xs" style={{ color: C.mute }}>None yet.</div>}
             {admin && <AddItem meetingId={m.id} kind={k} onAdded={onChange} />}
           </div>
@@ -135,8 +171,11 @@ function Meeting({ m, items, admin, onChange, onEdit }) {
       })}
       {admin && (
         <div className="flex flex-wrap gap-3 items-center mt-4 pt-3 text-sm" style={{ borderTop: `1px solid ${C.rule}` }}>
+          <span className="text-xs w-full" style={{ color: C.mute }}>{m.client_visible
+            ? `The client sees this meeting and the ${shared} point${shared === 1 ? "" : "s"} marked Shared.`
+            : "Mark the points to share, then press Share with client. Until then the client sees nothing from this meeting."}</span>
           <button onClick={share} className="px-3 py-1 rounded font-semibold" style={m.client_visible ? { border: `1px solid ${C.rule}`, background: "#fff" } : btn}>{m.client_visible ? "Unshare" : "Share with client"}</button>
-          <button onClick={copy} className="underline" style={{ color: C.deep }}>{copied ? "Copied, paste in WhatsApp" : "Copy for WhatsApp"}</button>
+          <button onClick={copy} className="underline" style={{ color: C.deep }}>{copied ? "Copied, paste in WhatsApp" : "Copy shared points for WhatsApp"}</button>
           <button onClick={onEdit} className="underline" style={{ color: C.mute }}>Edit title and summary</button>
         </div>
       )}
