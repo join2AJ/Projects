@@ -118,15 +118,40 @@ export const ONBOARDING = {
   ],
 };
 
+/* If a project ever ends (projects are long-term; Ajay keeps running the client's tools while it is active). */
 export const OFFBOARDING = [
-  ["Final report", "What was done, results against goals, and what I would do next."],
-  ["Handover pack", "Every login, setting and document in one place, with a 30-minute walkthrough for the next person."],
-  ["Access returned", "I remove myself from Ads, Analytics, Tag Manager, hosting and Business Profile."],
-  ["Files and backups", "Website files, a full backup, and all designs and reports, in your own Google Drive."],
-  ["Billing closed", "Final invoice settled."],
-  ["Feedback", "A short form: what worked, what didn’t. A testimonial only if you are happy to give one."],
-  ["Open door", "7 days of free questions after handover."],
+  ["Portal access", "You keep access to this portal for 7 days after the end date, to read and download everything."],
+  ["Your files", "Reports, files and invoices can be downloaded during those 7 days (Your data tab → Download my data)."],
+  ["Final invoice", "Final invoice settled."],
+  ["Your personal data", "After the 7 days your login is closed and your personal data is deleted, except records that tax law requires us to keep, such as invoices."],
 ];
+
+/* Privacy notice under the Digital Personal Data Protection Act, 2023. Bump the version when the text changes:
+   every client is then asked to read and accept it again. */
+export const PRIVACY_VERSION = "v1-2026-10";
+export const PRIVACY = {
+  fiduciary: "Ajay Kumar (Data Fiduciary)",
+  contact: "join2ajkumar@gmail.com",
+  collected: [
+    "Your name, phone number, email and login name",
+    "Your clinic or business details, and the services and fees agreed",
+    "What you send here: requests, messages, decision answers and files",
+    "Sign-in times and a record of changes (audit trail)",
+  ],
+  purpose: "Only to run your project: plan and report the work, keep records of decisions and payments, and keep the account secure. Nothing is sold or used for advertising.",
+  where: "Stored encrypted with our hosting provider Supabase in Mumbai, India, and served over HTTPS through Vercel.",
+  rights: [
+    "See and download a copy of your data (Your data → Download my data)",
+    "Ask for anything wrong to be corrected",
+    "Ask for your data to be deleted, or withdraw consent (this ends portal access)",
+    "Nominate someone to act for you",
+    "Raise a complaint with us, and if not resolved, with the Data Protection Board of India",
+  ],
+  retention: "Kept while the project is active. When a project ends you have 7 days of portal access; then your login and personal data are deleted, except invoices and records that tax law requires us to keep.",
+  breach: "If a breach ever affects your data, we will tell you and the Data Protection Board as the law requires.",
+  response: "We reply to privacy requests within 7 days.",
+};
+
 
 /* ───────── the weekly timetable: the same for every client ───────── */
 export const TZ_NAME = "IST";

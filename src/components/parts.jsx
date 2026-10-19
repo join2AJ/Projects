@@ -6,10 +6,11 @@ import { useRows } from "../lib/useRows.js";
 import { balance, invoiceState, fmtDate, isOverdue, total } from "../lib/money.js";
 import { LABEL, TONE } from "../lib/schema.js";
 import { STAGES, TIMETABLE, WEEKLY } from "../data/studio.js";
-import { KIND_LABEL, weeklyLabel } from "../lib/weekly.js";
+import { KIND_LABEL, weeklyLabel, nextUpdate, schedule, loadChanges } from "../lib/weekly.js";
 import { C, inr, Chip, H2, P, Box, T, Pills, Card, Audience } from "./ui.jsx";
 import { REPORTS } from "../projects/reports.js";
 import { FeesClient } from "./pricing.jsx";
+import { DecisionHistory } from "./collab.jsx";
 
 export const StageBar = ({ stage }) => {
   const at = STAGES.findIndex(([id]) => id === stage);
@@ -300,6 +301,7 @@ function DecisionCard({ d, n, onSaved }) {
   const [other, setOther] = useState(d.answer === "other");
   const [note, setNote] = useState(d.answer_note || "");
   const [msg, setMsg] = useState(null);
+  const [hist, setHist] = useState(false);
   const closed = d.status === "closed";
   const send = async (choice) => {
     setMsg(null);
@@ -342,6 +344,8 @@ function DecisionCard({ d, n, onSaved }) {
       {closed && d.answer === "other" && d.answer_note && <P style={{ marginTop: 8, marginBottom: 0 }}><b>Your note: </b>{d.answer_note}</P>}
       {closed && d.outcome && <P style={{ marginTop: 8, marginBottom: 0 }}><b style={{ color: C.good }}>Decision: </b>{d.outcome}</P>}
       {msg && <div className="text-sm mt-2" style={{ color: C.bad }}>{msg}</div>}
+      <button type="button" className="text-xs underline mt-2" style={{ color: C.mute }} aria-expanded={hist} onClick={() => setHist(!hist)}>{hist ? "Hide history" : "History"}</button>
+      {hist && <DecisionHistory id={d.id} />}
     </div>
   );
 }
@@ -379,11 +383,16 @@ export function DecisionsBanner({ projectId, onOpen }) {
 }
 
 /* ───────── weekly timetable ───────── */
-export function TimetableBox({ extra }) {
+export function TimetableBox({ extra, projectId = null }) {
+  const { rows } = useRows(loadChanges, []);
   const showExtra = extra?.at && new Date(extra.at) > new Date();
+  const changes = rows || [];
+  const next = nextUpdate(changes, projectId);
+  const skipped = schedule(changes, projectId, 2).find((s) => s.slot > new Date() && s.slot < (next?.at || 0) && s.change?.action === "skip");
   return (
     <Box tone="info" title={`Weekly update: ${WEEKLY.label}`}>
-      Next update: <b>{weeklyLabel()}</b>, on this page.
+      {skipped && <>No update on {weeklyLabel(skipped.slot)}{skipped.change.reason ? ` (${skipped.change.reason.replace(/\.$/, "")})` : ""}. </>}
+      Next update: <b>{next ? weeklyLabel(next.at) : weeklyLabel()}</b>{next?.change?.action === "move" ? " (moved)" : ""}, on this page.
       {showExtra && <> Extra update: <b>{new Date(extra.at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" })}</b>{extra.note ? `: ${extra.note.replace(/\.$/, "")}` : ""}.</>}
     </Box>
   );

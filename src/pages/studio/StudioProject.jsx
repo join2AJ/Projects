@@ -14,8 +14,9 @@ import { FilesPanel, MetricsPanel, ReportPanel, Tag, ANSWER, byMeeting } from ".
 import { emailToLogin } from "../../lib/auth.jsx";
 import { FeesEditor } from "../../components/pricing.jsx";
 import { AuditTrail, Timeline } from "../../components/activity.jsx";
-import { draftWeekly, thisWeek, weeklyLabel, KIND_LABEL } from "../../lib/weekly.js";
-import { WEEKLY, istDate, nextWeeklyUpdate, answerBy } from "../../data/studio.js";
+import { draftWeekly, thisWeek, weeklyLabel, KIND_LABEL, loadChanges } from "../../lib/weekly.js";
+import { ScheduleEditor, RequestThreads, CredentialsPanel, WorkLog } from "../../components/collab.jsx";
+import { WEEKLY, answerBy } from "../../data/studio.js";
 
 const field = "mt-1 w-full px-2 py-1.5 rounded text-sm";
 const fs = { border: `1px solid ${C.rule}`, background: "#fff" };
@@ -134,13 +135,14 @@ function MetricsImport({ projectId, onDone }) {
 }
 
 /* ───────── weekly update ───────── */
-function WeeklyButton({ project, onDone }) {
+function WeeklyButton({ project, onDone, bump }) {
   const [msg, setMsg] = useState(null);
-  const { day } = thisWeek();
+  const chg = useRows(loadChanges, [bump]);
+  const { at, day } = thisWeek(chg.rows || [], project.id);
   const go = async () => {
     setMsg(null);
     try {
-      const r = await draftWeekly(project);
+      const r = await draftWeekly(project, chg.rows || []);
       setMsg(r.existed ? ["info", "This week’s update already exists: edit it below."] : ["good", "Draft created from the last 7 days. Edit it, then Approve. It shows to the client at the time below."]);
       onDone();
     } catch (e) { setMsg(["bad", e.message]); }
@@ -150,9 +152,9 @@ function WeeklyButton({ project, onDone }) {
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex-1" style={{ minWidth: 0 }}>
           <div className="font-semibold text-sm" style={{ color: C.deep }}>Weekly update: {WEEKLY.label}</div>
-          <div className="text-sm" style={{ color: C.mute }}>This week’s goes to the client on <b>{weeklyLabel()}</b> ({fmtDate(day)}). Approve it before then.</div>
+          <div className="text-sm" style={{ color: C.mute }}>The next one goes to the client on <b>{weeklyLabel(at)}</b> ({fmtDate(day)}). Approve it before then.</div>
         </div>
-        <button onClick={go} className="px-3 py-1.5 rounded text-sm font-semibold" style={{ background: C.deep, color: "#fff" }}>Write this week’s update</button>
+        <button onClick={go} className="px-3 py-1.5 rounded text-sm font-semibold" style={{ background: C.deep, color: "#fff" }}>Write the next update</button>
       </div>
       {msg && <div className="text-sm mt-2" style={{ color: C[msg[0]] }}>{msg[1]}</div>}
     </Card>
@@ -232,6 +234,7 @@ export default function StudioProject() {
   const [tab, setTab] = useState("overview");
   const [bump, setBump] = useState(0);
   const numbers = useRows(() => supabase.from("invoices").select("number"), [bump, tab]);
+  const chg = useRows(loadChanges, [bump]);
   if (error) return <Box tone="bad" title="Could not load">{error.message}</Box>;
   if (!rows) return <P>Loading…</P>;
   const p = rows[0];
@@ -240,12 +243,13 @@ export default function StudioProject() {
   const year = today().slice(0, 4);
   const seq = Math.max(0, ...(numbers.rows || []).map((r) => r.number.match(new RegExp(`^INV-${year}-(\\d+)$`))?.[1]).filter(Boolean).map(Number));
   const nextNumber = `INV-${year}-${String(seq + 1).padStart(3, "0")}`;
+  const nextDay = thisWeek(chg.rows || [], id).day;
   const tabs = [
     ["overview", "Overview"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"], ["time", "Time"],
-    ["files", "Files"], ["requests", "Requests"], ["numbers", "Numbers"],
+    ["files", "Files"], ["requests", "Requests"], ["work", "Work done"], ["numbers", "Numbers"],
     ...(p.report_key && REPORTS[p.report_key] ? [["report", "Report"]] : []),
     ["timeline", "Client timeline"], ["activity", "Activity"],
-    ["access", "Client access"],
+    ["access", "Client access"], ["logins", "Tools and logins"],
   ];
 
   return (
@@ -267,7 +271,7 @@ export default function StudioProject() {
         <P>Questions for the client to answer Yes, No or Other. Drafts stay private until you press <b>Send</b>. After the update, Edit an item, set Status to Closed and write the final decision.</P>
         <DecisionsSummary projectId={id} projectName={p.name} bump={bump} />
         <Editor table="decisions" onChange={() => setBump((b) => b + 1)} projectId={id} fields={FIELDS.decisions} order={["sort", true]}
-          defaults={{ ...defaultsFor("decisions"), meeting_on: istDate(nextWeeklyUpdate()), due_on: answerBy(istDate(nextWeeklyUpdate())), status: "open", sort: 100 }}
+          defaults={{ ...defaultsFor("decisions"), meeting_on: nextDay, due_on: answerBy(nextDay), status: "open", sort: 100 }}
           columns={[["#", (r) => r.sort], ["Update", (r) => fmtDate(r.meeting_on)], ["Question", (r) => r.question],
             ["Sent", (r) => (r.client_visible ? <Chip key="s" tone="good">Sent</Chip> : <Chip key="d" tone="info">Draft</Chip>)],
             ["Answer", (r) => (r.answer ? <span key="a"><Chip tone={ANSWER[r.answer][1]}>{ANSWER[r.answer][0]}</Chip>{r.answer_note ? ` ${r.answer_note}` : ""}</span> : "–")],
@@ -275,7 +279,8 @@ export default function StudioProject() {
           extra={(r, reload) => <SendToggle row={r} reload={() => { reload(); setBump((b) => b + 1); }} />} />
       </>)}
 
-      {tab === "updates" && <WeeklyButton project={p} onDone={() => setBump((b) => b + 1)} />}
+      {tab === "updates" && <WeeklyButton project={p} bump={bump} onDone={() => setBump((b) => b + 1)} />}
+      {tab === "updates" && <ScheduleEditor projectId={id} onChange={() => setBump((b) => b + 1)} />}
       {tab === "updates" && <Editor key={`u${bump}`} table="updates" projectId={id} fields={FIELDS.updates} order={["happened_on", false]}
         defaults={{ ...defaultsFor("updates"), happened_on: today(), kind: "work", status: "Done" }}
         columns={[col("updates", "happened_on"), ["Type", (r) => KIND_LABEL[r.kind] || r.kind], col("updates", "title"), col("updates", "status"),
@@ -310,9 +315,9 @@ export default function StudioProject() {
 
       {tab === "files" && <FilesPanel projectId={id} owner />}
 
-      {tab === "requests" && <Editor table="requests" projectId={id} fields={FIELDS.requests} canAdd={false}
-        columns={[["Sent", (r) => fmtDate(r.created_at.slice(0, 10))], ["From", (r) => r.author_email || ""], ["Request", (r) => `${r.type} · ${r.priority}: ${r.details}`], ["Status", (r) => <Tag key="s" v={r.status} />], ["Reply", (r) => r.reply || "–"]]}
-        empty="No requests yet. Clients send them from their project page." />}
+      {tab === "requests" && <RequestThreads projectId={id} admin />}
+      {tab === "work" && <WorkLog projectId={id} reportKey={p.report_key} admin onOpenReport={() => setTab("report")} />}
+      {tab === "logins" && <CredentialsPanel projectId={id} />}
 
       {tab === "numbers" && (<>
         <MetricsImport projectId={id} onDone={() => setBump(bump + 1)} />

@@ -7,7 +7,7 @@ export default function Process() {
   return (
     <div>
       <H1>How we work together</H1>
-      <P>A clear start, a steady rhythm, and a clean handover. You always own your accounts, your domain and your files.</P>
+      <P>A clear start and a steady rhythm. While we work together I look after your tools and accounts for you, and everything stays in your name: your accounts, your domain and your files.</P>
 
       <H2>The journey</H2>
       <T head={["#", "Stage", "What happens"]} rows={STAGES.map(([, l, d], i) => [i + 1, <b key={l}>{l}</b>, d])} />
@@ -31,7 +31,8 @@ export default function Process() {
       <P>The same timetable for every client. Your written update appears on your project page every Tuesday at 11:00 IST. Budgets never change without your written OK.</P>
       <TimetableTable />
 
-      <H2>Handover: when a project ends</H2>
+      <H2>If a project ends</H2>
+      <P>This is long-term work, so there is no handover date. If it ever ends, this is what happens.</P>
       <T head={["Step", "What you get"]} rows={OFFBOARDING.map(([a, b]) => [<b key={a}>{a}</b>, b])} />
 
       <H2>Feedback</H2>

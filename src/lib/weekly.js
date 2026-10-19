@@ -9,17 +9,40 @@ import { nextWeeklyUpdate, istDate, answerBy, WEEKLY } from "../data/studio.js";
 export const WEEKLY_KIND = "meeting";
 export const KIND_LABEL = { meeting: "Weekly update", work: "Work", milestone: "Milestone", decision: "Decision", note: "Private note" };
 
-/* This week's slot: the next Tuesday 11:00 (today, if before 11:00 on a Tuesday). */
-export const thisWeek = () => {
-  const at = nextWeeklyUpdate();
-  return { at, day: istDate(at) };
+/* The regular Tuesday slots from `from` onwards. */
+export function slots(count = 8, from = new Date()) {
+  const out = [];
+  let t = nextWeeklyUpdate(from);
+  for (let i = 0; i < count; i++) { out.push(t); t = new Date(t.getTime() + 7 * 864e5); }
+  return out;
+}
+
+/* Apply skip/move changes (for this project or for everyone) to the regular slots. */
+export function schedule(changes = [], projectId = null, count = 8, from = new Date()) {
+  const forMe = changes.filter((c) => c.project_id === projectId || c.project_id === null);
+  return slots(count, new Date(from.getTime() - 7 * 864e5)).map((slot) => {
+    const c = forMe.find((x) => new Date(x.slot_at).getTime() === slot.getTime());
+    return { slot, change: c || null, at: c ? (c.action === "move" ? new Date(c.new_at) : null) : slot };
+  });
+}
+
+/* The next update that actually happens: skipped slots are passed over, moved ones use their new time. */
+export function nextUpdate(changes = [], projectId = null, from = new Date()) {
+  return schedule(changes, projectId, 12, from).filter((s) => s.at && s.at > from).sort((a, b) => a.at - b.at)[0] || null;
+}
+
+/* This week's update for a project, honouring skips and moves. */
+export const thisWeek = (changes = [], projectId = null) => {
+  const n = nextUpdate(changes, projectId);
+  const at = n ? n.at : nextWeeklyUpdate();
+  return { at, day: istDate(at), slot: n?.slot || at };
 };
 
 const OPEN_ISSUE = ["open", "in_progress", "waiting_client", "blocked"];
 
 /* Create a draft weekly update for a project, pre-filled from the last 7 days. Returns {existed} or {id}. */
-export async function draftWeekly(project) {
-  const { at, day } = thisWeek();
+export async function draftWeekly(project, changes = []) {
+  const { at, day } = thisWeek(changes, project.id);
   const have = await supabase.from("updates").select("id").eq("project_id", project.id).eq("kind", WEEKLY_KIND).eq("happened_on", day);
   if (have.error) throw have.error;
   if (have.data.length) return { existed: true, id: have.data[0].id };
@@ -63,4 +86,7 @@ export async function draftWeekly(project) {
 }
 
 export const weeklyLabel = (at = nextWeeklyUpdate()) =>
-  `${at.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}, ${String(WEEKLY.hour).padStart(2, "0")}:${String(WEEKLY.minute).padStart(2, "0")} IST`;
+  `${at.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}, ${at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })} IST`;
+
+/* Load schedule changes once per page. */
+export const loadChanges = () => supabase.from("schedule_changes").select("*");

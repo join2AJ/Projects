@@ -16,8 +16,9 @@ import Users from "./pages/studio/Users.jsx";
 import PriceList from "./pages/studio/PriceList.jsx";
 import Security from "./pages/Security.jsx";
 import { ActivityPage } from "./pages/studio/Activity.jsx";
+import { PrivacyPage, ConsentGate } from "./components/collab.jsx";
 
-// Only /login is public. Everything else needs a signed-in user; /studio needs the admin.
+// Only /login and /privacy are public. Everything else needs a signed-in user; /studio needs the admin.
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
@@ -26,6 +27,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route element={<Layout />}>
             <Route index element={<Entry />} />
             <Route path="login" element={<Login />} />
+            <Route path="privacy" element={<PrivacyPage />} />
             <Route path="account" element={<Require><Account /></Require>} />
             <Route path="security" element={<Require><Security /></Require>} />
             <Route path="studio/activity" element={<Require owner><ActivityPage /></Require>} />

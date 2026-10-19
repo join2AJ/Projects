@@ -23,6 +23,40 @@ async function adminCall(body) {
 const input = "mt-1 w-full px-2 py-1.5 rounded text-sm";
 const fs = { border: `1px solid ${C.rule}`, background: "#fff" };
 const F = ({ label, children, wide }) => <label className={`block text-xs mb-3 ${wide ? "md:col-span-2" : ""}`} style={{ color: C.mute }}>{label}{children}</label>;
+/* The WhatsApp message that tells someone how to sign in. The password is included only right after you set it. */
+export const inviteText = ({ name, login, password }) => [
+  `Hello ${(name || "").split(" ")[0] || "there"},`,
+  "",
+  "Your project portal is ready. Everything about your project is in one place: weekly updates (Tuesdays, 11:00 IST), decisions for you to answer, issues, fees and invoices, files, reports and a full timeline.",
+  "",
+  `Sign in: ${window.location.origin}/login`,
+  `Username: ${login}`,
+  `Password: ${password || "(I will send it separately)"}`,
+  "",
+  "Please change the password after your first sign-in (Account page). You can send me requests and reply on the Requests tab, and every message is kept.",
+  "",
+  "Ajay",
+].join("\n");
+
+function Invite({ invite }) {
+  const [done, setDone] = useState(null);
+  const text = inviteText(invite);
+  const phone = (invite.phone || "").replace(/\D/g, "").replace(/^0/, "");
+  const wa = `https://wa.me/${phone.length === 10 ? "91" + phone : phone}?text=${encodeURIComponent(text)}`;
+  const copy = async () => { try { await navigator.clipboard.writeText(text); setDone("Copied"); } catch { setDone("Select the text and copy it"); } };
+  return (
+    <Card className="mb-4">
+      <div className="font-semibold text-sm mb-1" style={{ color: C.deep }}>WhatsApp invite for {invite.name || invite.login}</div>
+      <pre className="text-xs p-2 mb-2" style={{ whiteSpace: "pre-wrap", background: C.bg, borderRadius: 4, userSelect: "all" }}>{text}</pre>
+      <div className="flex flex-wrap gap-3 items-center text-sm">
+        <button onClick={copy} className="px-3 py-1 rounded font-semibold" style={{ background: C.deep, color: "#fff" }}>Copy WhatsApp message</button>
+        {phone && <a href={wa} target="_blank" rel="noreferrer" className="underline" style={{ color: C.deep }}>Open in WhatsApp</a>}
+        {done && <span className="text-xs" style={{ color: C.mute }}>{done}</span>}
+      </div>
+    </Card>
+  );
+}
+
 const blank = { full_name: "", login: "", password: "", is_owner: false, status: "active", phone: "", contact_email: "", client_id: "", notes: "", project_ids: [] };
 
 function UserForm({ user, clients, projects, onDone, onCancel }) {
@@ -44,7 +78,9 @@ function UserForm({ user, clients, projects, onDone, onCancel }) {
       notes: u.notes, status: u.status, is_owner: !!u.is_owner, project_ids: u.project_ids,
       ...(isNew ? { login: u.login } : {}), ...(u.password ? { password: u.password } : {}),
     };
-    try { await adminCall(body); onDone(isNew ? `Created. They sign in as “${u.login.trim().toLowerCase()}” with the password you set.` : "Saved"); }
+    const login = isNew ? u.login.trim().toLowerCase() : user.login;
+    const invite = !u.is_owner && (isNew || u.password) ? { name: u.full_name, login, password: u.password, phone: u.phone } : null;
+    try { await adminCall(body); onDone(isNew ? `Created. They sign in as “${login}” with the password you set.` : "Saved", invite); }
     catch (err) { setMsg(err.message); }
     setBusy(false);
   };
@@ -127,6 +163,7 @@ function People() {
   const [open, setOpen] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [note, setNote] = useState(null);
+  const [invite, setInvite] = useState(null);
   const clients = useRows(() => supabase.from("clients").select("id,name,org").order("name"), []);
   const projects = useRows(() => supabase.from("projects").select("id,slug,name,client_id").order("name"), []);
   const services = useRows(() => supabase.from("project_services").select("*").order("created_at"), []);
@@ -152,9 +189,10 @@ function People() {
       </div>
       {err && <Box tone="bad" title="Could not load users">{err}</Box>}
       {note && <Box tone={note[0]}>{note[1]}</Box>}
+      {invite && <Invite invite={invite} />}
       {editing && clients.rows && projects.rows && (
         <UserForm key={editing.id || "new"} user={editing} clients={clients.rows} projects={projects.rows}
-          onCancel={() => setEditing(null)} onDone={(m) => { setEditing(null); setNote(["good", m]); load(); }} />
+          onCancel={() => setEditing(null)} onDone={(m, inv) => { setEditing(null); setNote(["good", m]); setInvite(inv); load(); }} />
       )}
       {!users ? <P>Loading…</P> : (
         <T head={["Name", "Signs in as", "Role", "Status", "Clinic", "Projects", "Last sign-in", ""]} rows={users
@@ -166,7 +204,8 @@ function People() {
             cname[u.client_id] || "–", u.is_owner ? "All" : u.project_ids.map((id) => pname[id]).filter(Boolean).join(", ") || "–",
             u.last_sign_in_at ? fmtDateTime(u.last_sign_in_at) : "Never",
             <span key="a" className="text-xs whitespace-nowrap">
-              <button className="underline mr-2" style={{ color: C.deep }} onClick={() => { setNote(null); setEditing(u); }}>Edit</button>
+              <button className="underline mr-2" style={{ color: C.deep }} onClick={() => { setNote(null); setInvite(null); setEditing(u); }}>Edit</button>
+              {!u.is_owner && <button className="underline mr-2" style={{ color: C.deep }} onClick={() => { setNote(null); setInvite({ name: u.full_name, login: u.login, phone: u.phone }); }}>Invite</button>}
               {u.id === session.user.id ? <span style={{ color: C.mute }}>you</span>
                 : confirm === u.id ? <button className="underline" style={{ color: C.bad }} onClick={() => remove(u)}>Confirm delete</button>
                 : <button className="underline" style={{ color: C.mute }} onClick={() => setConfirm(u.id)}>Delete</button>}

@@ -6,8 +6,8 @@ import { supabase } from "../../lib/supabase.js";
 import { useRows } from "../../lib/useRows.js";
 import { balance, total, isOverdue, daysLate, fmtDate, hours, reminderText, today, fmtDateTime } from "../../lib/money.js";
 import { RECURRING } from "../../lib/schema.js";
-import { STUDIO, STAGES, WEEKLY, ACTIVE_STAGES } from "../../data/studio.js";
-import { draftWeekly, thisWeek, weeklyLabel, WEEKLY_KIND } from "../../lib/weekly.js";
+import { STUDIO, STAGES, WEEKLY, ACTIVE_STAGES, nextWeeklyUpdate } from "../../data/studio.js";
+import { draftWeekly, thisWeek, weeklyLabel, schedule, loadChanges, WEEKLY_KIND } from "../../lib/weekly.js";
 import { C, inr, Chip, H1, H2, P, Box, T, Card } from "../../components/ui.jsx";
 
 const ym = (d) => d.slice(0, 7);
@@ -37,33 +37,40 @@ function Remind({ inv, project, onDone }) {
   return <button onClick={copy} className="underline text-xs" style={{ color: C.deep }}>{copied ? "Copied, send on WhatsApp" : "Copy reminder"}</button>;
 }
 
-/* This Tuesday's weekly updates: one per active client, on the same timetable. */
+/* The next weekly update for each active client, honouring skips and moves. */
 function WeeklyCard({ projects, upcoming }) {
-  const { at, day } = thisWeek();
+  const chg = useRows(loadChanges, []);
+  const changes = chg.rows || [];
+  const regular = nextWeeklyUpdate();
   const active = projects.filter((p) => ACTIVE_STAGES.includes(p.stage));
-  const w = useRows(() => supabase.from("updates").select("id,project_id,client_visible").eq("kind", WEEKLY_KIND).eq("happened_on", day), [day]);
+  const next = Object.fromEntries(active.map((p) => [p.id, thisWeek(changes, p.id)]));
+  const days = [...new Set(Object.values(next).map((n) => n.day))];
+  const w = useRows(() => supabase.from("updates").select("id,project_id,client_visible,happened_on").eq("kind", WEEKLY_KIND).in("happened_on", days.length ? days : ["1970-01-01"]), [days.join()]);
   const [busy, setBusy] = useState(null);
+  const mine = (p) => (w.rows || []).find((x) => x.project_id === p.id && x.happened_on === next[p.id].day);
   const state = (p) => {
-    const u = (w.rows || []).find((x) => x.project_id === p.id);
+    const u = mine(p);
     if (!u) return ["Not written", "bad"];
     if (!u.client_visible) return ["Draft: approve it", "warn"];
-    return at > new Date() ? ["Approved, goes out on time", "good"] : ["Published", "good"];
+    return next[p.id].at > new Date() ? ["Approved, goes out on time", "good"] : ["Published", "good"];
   };
-  const missing = active.filter((p) => !(w.rows || []).some((x) => x.project_id === p.id));
+  const skipped = (p) => schedule(changes, p.id, 2).find((s) => s.slot.getTime() === regular.getTime())?.change;
+  const missing = active.filter((p) => !mine(p));
   const draftAll = async () => {
     setBusy("Writing drafts…");
-    try { for (const p of missing) await draftWeekly(p); setBusy(null); } catch (e) { setBusy(e.message); }
+    try { for (const p of missing) await draftWeekly(p, changes); setBusy(null); } catch (e) { setBusy(e.message); }
     w.reload();
   };
   return (
     <Card>
-      <div className="font-semibold text-sm" style={{ color: C.deep }}>Weekly updates: {weeklyLabel(at)}</div>
-      <div className="text-xs mb-2" style={{ color: C.mute }}>{WEEKLY.label}, for every active client</div>
+      <div className="font-semibold text-sm" style={{ color: C.deep }}>Weekly updates: {weeklyLabel(regular)}</div>
+      <div className="text-xs mb-2" style={{ color: C.mute }}>{WEEKLY.label}, for every active client. Skip or move one on the project’s Updates tab.</div>
       {!active.length ? <div className="text-sm" style={{ color: C.mute }}>No active projects.</div> : (
         <ul className="text-sm grid gap-1">
-          {active.map((p) => { const [l, t] = state(p); return (
+          {active.map((p) => { const [l, t] = state(p); const sk = skipped(p); return (
             <li key={p.id} className="flex flex-wrap justify-between gap-2">
-              <Link to={`/studio/p/${p.slug}`} className="underline" style={{ color: C.deep }}>{p.name}</Link><Chip tone={t}>{l}</Chip>
+              <Link to={`/studio/p/${p.slug}`} className="underline" style={{ color: C.deep }}>{p.name}</Link>
+              <span>{sk && <Chip tone="info">{sk.action === "skip" ? "Skipped" : "Moved"}</Chip>} {sk && <span className="text-xs" style={{ color: C.mute }}>next {weeklyLabel(next[p.id].at)} </span>}<Chip tone={t}>{l}</Chip></span>
             </li>
           ); })}
         </ul>
@@ -79,12 +86,32 @@ function WeeklyCard({ projects, upcoming }) {
   );
 }
 
+/* DPDP: a client's access ends 7 days after their project ends. Lists accounts still attached after that. */
+function PrivacyCard({ projects }) {
+  const mem = useRows(() => supabase.from("project_members").select("project_id,email"), []);
+  const late = projects.filter((p) => p.ended_on && (Date.now() - new Date(p.ended_on).getTime()) / 864e5 > 7)
+    .map((p) => [p, (mem.rows || []).filter((m) => m.project_id === p.id)]).filter(([, m]) => m.length);
+  const soon = projects.filter((p) => p.ended_on && (Date.now() - new Date(p.ended_on).getTime()) / 864e5 <= 7);
+  return (
+    <Card>
+      <div className="font-semibold text-sm mb-2" style={{ color: C.deep }}>Privacy (DPDP)</div>
+      {!late.length && !soon.length ? <div className="text-sm" style={{ color: C.mute }}>No ended projects. Client data is kept only while their project runs, plus 7 days.</div> : (
+        <ul className="text-sm grid gap-1">
+          {soon.map((p) => <li key={p.id}><b>{p.name}</b>: ended {fmtDate(p.ended_on)}, portal access until {fmtDate(new Date(new Date(p.ended_on).getTime() + 7 * 864e5).toISOString().slice(0, 10))}</li>)}
+          {late.map(([p, m]) => <li key={p.id}><Chip tone="bad">Action</Chip> <b>{p.name}</b>: access ended, {m.length} account{m.length > 1 ? "s" : ""} still attached. Remove them on <Link to="/studio/users" className="underline" style={{ color: C.deep }}>People</Link> and delete personal data not needed for tax records.</li>)}
+        </ul>
+      )}
+      <div className="text-xs mt-2" style={{ color: C.mute }}>Privacy requests from clients arrive under Client requests, starting “[Privacy]”. Reply within 7 days.</div>
+    </Card>
+  );
+}
+
 export default function Dashboard() {
-  const projects = useRows(() => supabase.from("projects").select("id,slug,name,stage,next_meeting_at,next_meeting_note,clients(name)").order("created_at", { ascending: false }), []);
+  const projects = useRows(() => supabase.from("projects").select("id,slug,name,stage,ended_on,next_meeting_at,next_meeting_note,clients(name)").order("created_at", { ascending: false }), []);
   const inv = useRows(() => supabase.from("invoices").select("*"), []);
   const exp = useRows(() => supabase.from("expenses").select("*"), []);
   const time = useRows(() => supabase.from("time_entries").select("*"), []);
-  const svc = useRows(() => supabase.from("project_services").select("*"), []);
+  const svc = useRows(() => supabase.from("project_services").select("*, fee_private(list_price)"), []);
   const req = useRows(() => supabase.from("requests").select("*").in("status", ["new", "accepted", "in_progress"]).order("created_at", { ascending: false }), []);
   const dec = useRows(() => supabase.from("decisions").select("id,project_id,answer,client_visible,status").eq("status", "open"), []);
   const pending = useRows(() => supabase.from("updates").select("id,project_id,title,happened_on").eq("client_visible", false).neq("kind", "note").order("happened_on", { ascending: false }), []);
@@ -118,8 +145,8 @@ export default function Dashboard() {
       outstanding: open.reduce((a, i) => a + balance(i), 0), overdueSum: overdue.reduce((a, i) => a + balance(i), 0),
       spentMonth: spent((d) => ym(d) === month), hrsMonth: hrs((d) => ym(d) === month),
       rate90: (() => { const h = hrs((d) => d >= since90); const g = paidIn((d) => d >= since90.slice(0, 10)) - spent((d) => d >= since90.slice(0, 10)); return h ? g / h : null; })(),
-      discMonth: svc.rows.filter((x) => x.kind === "monthly" && !["Declined", "Stopped"].includes(x.status)).reduce((a, x) => a + Math.max(0, Number(x.list_price ?? x.price) - Number(x.price)), 0),
-      discOnce: svc.rows.filter((x) => x.kind === "one-time" && x.status !== "Declined").reduce((a, x) => a + Math.max(0, Number(x.list_price ?? x.price) - Number(x.price)), 0),
+      discMonth: svc.rows.filter((x) => x.kind === "monthly" && !["Declined", "Stopped"].includes(x.status)).reduce((a, x) => a + Math.max(0, Number(x.fee_private?.list_price ?? x.price) - Number(x.price)), 0),
+      discOnce: svc.rows.filter((x) => x.kind === "one-time" && !["Declined", "Stopped"].includes(x.status)).reduce((a, x) => a + Math.max(0, Number(x.fee_private?.list_price ?? x.price) - Number(x.price)), 0),
       pipeline: pipeline.reduce((a, s) => a + Number(s.price) * (s.kind === "monthly" ? 12 : 1), 0), pipelineN: pipeline.length,
       openTimers: time.rows.filter((t) => !t.ended_at),
       chart: months.map((m) => ({
@@ -219,6 +246,7 @@ export default function Dashboard() {
             );
           })()}
         </Card>
+        <PrivacyCard projects={projects.rows} />
         <Card>
           <div className="font-semibold text-sm mb-2" style={{ color: C.deep }}>Open issues</div>
           <div className="text-sm">

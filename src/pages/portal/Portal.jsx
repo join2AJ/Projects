@@ -4,12 +4,11 @@ import { Link, Navigate, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase.js";
 import { useAuth } from "../../lib/auth.jsx";
 import { useRows } from "../../lib/useRows.js";
-import { fmtDate, fmtDateTime } from "../../lib/money.js";
-import { OFFBOARDING } from "../../data/studio.js";
 import { C, H1, H2, P, Box, T, Tabs, Card } from "../../components/ui.jsx";
-import { StageBar, UpdatesList, IssuesList, DueBanner, MoneyClient, MetricsPanel, FilesPanel, RequestsClient, ReportPanel, DecisionsClient, DecisionsBanner, TimetableBox } from "../../components/parts.jsx";
+import { StageBar, UpdatesList, IssuesList, DueBanner, MoneyClient, MetricsPanel, FilesPanel, ReportPanel, DecisionsClient, DecisionsBanner, TimetableBox } from "../../components/parts.jsx";
 import { REPORTS } from "../../projects/reports.js";
 import { Timeline } from "../../components/activity.jsx";
+import { RequestThreads, WorkLog, YourData } from "../../components/collab.jsx";
 
 export function Portal() {
   const { session, profile } = useAuth();
@@ -41,7 +40,7 @@ function Overview({ p, go }) {
       <P>{p.summary} {p.brief}</P>
       <DueBanner projectId={p.id} />
       <DecisionsBanner projectId={p.id} onOpen={() => go("decisions")} />
-      <TimetableBox extra={{ at: p.next_meeting_at, note: p.next_meeting_note }} />
+      <TimetableBox projectId={p.id} extra={{ at: p.next_meeting_at, note: p.next_meeting_note }} />
       <H2>Where we are</H2>
       <StageBar stage={p.stage} />
       <H2>Services</H2>
@@ -64,9 +63,9 @@ export function PortalProject() {
   if (!p) return <Box tone="warn" title="Project not found">This project is not shared with your email. <Link to="/portal" className="underline">Your projects</Link></Box>;
   const tabs = [
     ["overview", "Overview"], ["timeline", "Timeline"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"],
-    ["files", "Files"], ["requests", "Requests"], ["numbers", "Numbers"],
+    ["files", "Files"], ["requests", "Requests"], ["work", "Work done"], ["numbers", "Numbers"],
     ...(p.report_key && REPORTS[p.report_key] ? [["report", REPORTS[p.report_key].label]] : []),
-    ["handover", "Handover"],
+    ["data", "Your data"],
   ];
   return (
     <div>
@@ -81,17 +80,11 @@ export function PortalProject() {
       {tab === "issues" && <IssuesList projectId={p.id} />}
       {tab === "money" && <MoneyClient projectId={p.id} />}
       {tab === "files" && <FilesPanel projectId={p.id} />}
-      {tab === "requests" && <RequestsClient projectId={p.id} />}
+      {tab === "requests" && <RequestThreads projectId={p.id} />}
+      {tab === "work" && <WorkLog projectId={p.id} reportKey={p.report_key} onOpenReport={() => setTab("report")} />}
       {tab === "numbers" && <MetricsPanel projectId={p.id} />}
       {tab === "report" && <ReportPanel reportKey={p.report_key} />}
-      {tab === "handover" && (
-        <div>
-          <H2>When this project ends</H2>
-          <P>Nothing is locked in. If you stop a service, this is what you get.</P>
-          <T head={["Step", "What you get"]} rows={OFFBOARDING.map(([a, b]) => [<b key={a}>{a}</b>, b])} />
-          {p.ended_on && <P>Project ended {fmtDate(p.ended_on)}.</P>}
-        </div>
-      )}
+      {tab === "data" && <YourData project={p} />}
     </div>
   );
 }

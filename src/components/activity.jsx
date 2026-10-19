@@ -6,8 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { useRows } from "../lib/useRows.js";
 import { fmtDate, fmtDateTime, today } from "../lib/money.js";
-import { nextWeeklyUpdate, istDate } from "../data/studio.js";
-import { weeklyLabel } from "../lib/weekly.js";
+import { istDate } from "../data/studio.js";
+import { weeklyLabel, schedule, loadChanges } from "../lib/weekly.js";
 import { C, Chip, H2, P, Pills } from "./ui.jsx";
 
 const ROLE = { admin: ["Admin", "info"], client: ["Client", "good"], system: ["System", "warn"] };
@@ -97,14 +97,21 @@ export function Timeline({ project }) {
   const upd = useRows(() => supabase.from("updates").select("id,happened_on,publish_at,created_at,title,kind,status").eq("project_id", pid).eq("client_visible", true), [pid]);
   const dec = useRows(() => supabase.from("decisions").select("question,due_on,status,answer").eq("project_id", pid).eq("client_visible", true).eq("status", "open"), [pid]);
   const inv = useRows(() => supabase.from("invoices").select("number,due_on,status").eq("project_id", pid).eq("status", "sent"), [pid]);
+  const chg = useRows(loadChanges, []);
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 60000); return () => clearInterval(t); }, []);
 
-  if ([log, upd, dec, inv].some((x) => !x.rows)) return <P>Loading…</P>;
+  if ([log, upd, dec, inv, chg].some((x) => !x.rows)) return <P>Loading…</P>;
   const now = today();
-  const next = nextWeeklyUpdate();
+  // The next four weekly slots, with any skip or move shown
+  const weeks = schedule(chg.rows, pid, 6).filter((s) => (s.at || s.slot) > new Date()).slice(0, 4).map((s) => {
+    const why = s.change?.reason ? ` (${s.change.reason.replace(/\.$/, "")})` : "";
+    if (!s.change) return { day: istDate(s.slot), what: `Weekly update on this page (${weeklyLabel(s.slot)})`, kind: "update" };
+    if (s.change.action === "skip") return { day: istDate(s.slot), what: `No update on ${weeklyLabel(s.slot)}: skipped${why}`, kind: "skip" };
+    return { day: istDate(s.at), what: `Weekly update moved from ${weeklyLabel(s.slot)} to ${weeklyLabel(s.at)}${why}`, kind: "update" };
+  });
   const ahead = [
-    { day: istDate(next), what: `Weekly update on this page (${weeklyLabel(next)})`, kind: "update" },
+    ...weeks,
     ...upd.rows.filter((u) => u.status === "Scheduled" && u.happened_on >= now).map((u) => ({ day: u.happened_on, what: u.title, kind: "plan" })),
     ...dec.rows.filter((d) => !d.answer && d.due_on).map((d) => ({ day: d.due_on, what: `Your answer needed: ${d.question}`, kind: "you" })),
     ...inv.rows.map((i) => ({ day: i.due_on, what: `Payment due: invoice ${i.number}`, kind: "you" })),
@@ -128,7 +135,7 @@ export function Timeline({ project }) {
     if (!groups.length || groups.at(-1)[0] !== d) groups.push([d, []]);
     groups.at(-1)[1].push(e);
   }
-  const TONE = { update: "info", plan: "info", you: "warn" };
+  const TONE = { update: "info", plan: "info", you: "warn", skip: "info" };
   return (
     <div>
       <H2>Coming up</H2>
@@ -136,7 +143,7 @@ export function Timeline({ project }) {
         {ahead.map((a, i) => (
           <li key={i} className="flex gap-3 py-1 text-sm">
             <span className="whitespace-nowrap" style={{ color: C.mute, minWidth: 92, fontVariantNumeric: "tabular-nums" }}>{fmtDate(a.day)}</span>
-            <span><Chip tone={TONE[a.kind]}>{a.kind === "you" ? "You" : a.kind === "update" ? "Update" : "Planned"}</Chip> {a.what}</span>
+            <span><Chip tone={TONE[a.kind]}>{a.kind === "you" ? "You" : a.kind === "update" ? "Update" : a.kind === "skip" ? "Skipped" : "Planned"}</Chip> {a.what}</span>
           </li>
         ))}
       </ul>
