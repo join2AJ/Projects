@@ -180,7 +180,7 @@ function FeeRow({ r, onSaved }) {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [msg, setMsg] = useState(null);
-  const locked = ["Declined", "Stopped", "Done"].includes(r.status);
+  const locked = ["Declined", "Stopped"].includes(r.status);
   const send = async (choice) => {
     setMsg(null);
     const { error } = await supabase.rpc("respond_fee", { service: r.id, choice, amount: choice === "offer" ? Number(amount) : null, note: note || null });
@@ -218,15 +218,45 @@ function FeeRow({ r, onSaved }) {
   );
 }
 
-export function FeesClient({ projectId }) {
+/* The client's own money dashboard: what they pay every month, and one-time. */
+const OFF = ["Declined", "Stopped"];
+function FeeTiles({ rows }) {
+  const live = rows.filter((r) => !OFF.includes(r.status));
+  const tile = (title, list, unit) => {
+    const sum = list.reduce((a, r) => a + Number(r.price), 0);
+    const ok = list.filter((r) => r.client_response === "approved").length;
+    return (
+      <Card>
+        <div className="text-xs uppercase tracking-wide" style={{ color: C.mute }}>{title}</div>
+        <div className="text-2xl font-semibold" style={{ color: C.deep, fontVariantNumeric: "tabular-nums" }}>{inr(sum)}<span className="text-sm font-normal" style={{ color: C.mute }}>{unit}</span></div>
+        <div className="text-xs mt-1" style={{ color: C.mute }}>{list.length ? `${list.length} service${list.length > 1 ? "s" : ""} · ${ok} approved by you` : "None"}</div>
+        <ul className="text-xs mt-2" style={{ lineHeight: 1.6 }}>
+          {list.map((r) => <li key={r.id} className="flex justify-between gap-2"><span>{r.name}</span><span style={{ fontVariantNumeric: "tabular-nums" }}>{inr(r.price)}</span></li>)}
+        </ul>
+      </Card>
+    );
+  };
+  return (
+    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 mb-4" aria-label="Your payments">
+      {tile("Recurring, every month", live.filter((r) => r.kind === "monthly"), " / month")}
+      {tile("One-time", live.filter((r) => r.kind !== "monthly"), "")}
+    </div>
+  );
+}
+
+export function FeesClient({ projectId, banner = null }) {
   const fees = useRows(() => supabase.from("project_services").select("*").eq("project_id", projectId).eq("client_visible", true).order("created_at"), [projectId]);
   const cat = useRows(() => supabase.from("services").select("id,why,includes"), []);
   const [open, setOpen] = useState(null);
   const rows = fees.rows || [];
   const svc = (k) => (cat.rows || []).find((c) => c.id === k);
-  const waiting = rows.filter((r) => !r.client_response && !["Declined", "Stopped", "Done"].includes(r.status)).length;
+  const waiting = rows.filter((r) => !r.client_response && !OFF.includes(r.status)).length;
   return (
     <div>
+      <H2>Your payments</H2>
+      <FeeTiles rows={rows} />
+      <P style={{ color: C.mute, marginTop: -8 }}>All fees exclude GST.</P>
+      {banner}
       <H2>Your fees</H2>
       <P>Approve each fee, or suggest your own price and Ajay will reply. Every answer is saved with its date and time.</P>
       {waiting > 0 && <Box tone="warn" title={`${waiting} fee${waiting > 1 ? "s" : ""} waiting for your answer`}>Approve, or suggest your price, below.</Box>}

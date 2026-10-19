@@ -83,7 +83,7 @@ notes are compiled out of the live site and appear only in `npm run dev`. Use pr
 ### 1. Database (Supabase)
 
 1. Create a Supabase project (free plan allows 2 active projects; pause one if both are used).
-2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`, `0005_weekly_updates.sql`, `0006_price_list_and_discounts.sql`, `0007_audit_trail.sql`, `0008_schedule_threads_fees_privacy.sql`, `0009_credentials_vault.sql`, `0010_schedule_changes_private.sql`
+2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`, `0005_weekly_updates.sql`, `0006_price_list_and_discounts.sql`, `0007_audit_trail.sql`, `0008_schedule_threads_fees_privacy.sql`, `0009_credentials_vault.sql`, `0010_schedule_changes_private.sql`, `0011_respond_fee_done_work.sql`
    (and `supabase/seed/price_list.sql`)
    (and `supabase/seed/tailbone_decisions.sql` for the 19 Oct meeting).
    Deploy `supabase/functions/admin-users` (Edge Functions).

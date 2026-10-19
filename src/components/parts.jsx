@@ -104,8 +104,7 @@ export function MoneyClient({ projectId }) {
   const paid = rows.reduce((a, i) => a + (i.status === "paid" ? total(i) : Number(i.paid_amount || 0)), 0);
   return (
     <div>
-      <DueBanner projectId={projectId} />
-      <FeesClient projectId={projectId} />
+      <FeesClient projectId={projectId} banner={<DueBanner projectId={projectId} />} />
       <H2>Invoices</H2>
       <T head={["Invoice", "For", "Issued", "Total", "Status"]} right={[3]} rows={rows.map((i) => {
         const [l, tone] = invoiceState(i);
