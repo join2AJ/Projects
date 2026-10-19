@@ -6,7 +6,7 @@ import { useRows } from "../lib/useRows.js";
 import { balance, invoiceState, fmtDate, isOverdue, total } from "../lib/money.js";
 import { LABEL, TONE } from "../lib/schema.js";
 import { STAGES, TIMETABLE, WEEKLY } from "../data/studio.js";
-import { KIND_LABEL, weeklyLabel, nextUpdate, schedule, loadChanges } from "../lib/weekly.js";
+import { KIND_LABEL, weeklyLabel, nextUpdate, loadChanges } from "../lib/weekly.js";
 import { C, inr, Chip, H2, P, Box, T, Pills, Card, Audience } from "./ui.jsx";
 import { REPORTS } from "../projects/reports.js";
 import { FeesClient } from "./pricing.jsx";
@@ -386,13 +386,12 @@ export function DecisionsBanner({ projectId, onOpen }) {
 export function TimetableBox({ extra, projectId = null }) {
   const { rows } = useRows(loadChanges, []);
   const showExtra = extra?.at && new Date(extra.at) > new Date();
-  const changes = rows || [];
-  const next = nextUpdate(changes, projectId);
-  const skipped = schedule(changes, projectId, 2).find((s) => s.slot > new Date() && s.slot < (next?.at || 0) && s.change?.action === "skip");
+  const pub = useRows(() => supabase.from("updates").select("id").eq("project_id", projectId).eq("kind", "meeting").eq("client_visible", true).lte("publish_at", new Date().toISOString()).limit(1), [projectId]);
+  const next = nextUpdate(rows || [], projectId);
+  const when = <b>{next ? weeklyLabel(next.at) : weeklyLabel()}</b>;
   return (
     <Box tone="info" title={`Weekly update: ${WEEKLY.label}`}>
-      {skipped && <>No update on {weeklyLabel(skipped.slot)}{skipped.change.reason ? ` (${skipped.change.reason.replace(/\.$/, "")})` : ""}. </>}
-      Next update: <b>{next ? weeklyLabel(next.at) : weeklyLabel()}</b>{next?.change?.action === "move" ? " (moved)" : ""}, on this page.
+      {pub.rows && !pub.rows.length ? <>Weekly updates start {when}, then every Tuesday, on this page.</> : <>Next update: {when}, on this page.</>}
       {showExtra && <> Extra update: <b>{new Date(extra.at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" })}</b>{extra.note ? `: ${extra.note.replace(/\.$/, "")}` : ""}.</>}
     </Box>
   );

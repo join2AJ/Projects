@@ -40,7 +40,7 @@ export function ScheduleEditor({ projectId, onChange }) {
   return (
     <Card className="mb-4">
       <div className="font-semibold text-sm mb-1" style={{ color: C.deep }}>Update schedule: {WEEKLY.label}</div>
-      <div className="text-xs mb-2" style={{ color: C.mute }}>Skip or move any update. The client sees the change on their timeline, and it is logged.</div>
+      <div className="text-xs mb-2" style={{ color: C.mute }}>Skip or move any update. The client is never told about a skipped or moved date: they only see when the next update is. Every change is in your Activity log.</div>
       <ul className="text-sm">
         {list.map((s) => (
           <li key={s.slot.toISOString()} className="flex flex-wrap items-center gap-2 py-1" style={{ borderBottom: `1px solid ${C.rule}` }}>
@@ -67,7 +67,7 @@ export function ScheduleEditor({ projectId, onChange }) {
               <input id="sch-at" type="datetime-local" value={form.at} onChange={(e) => setForm({ ...form, at: e.target.value })} className={input} style={fs} />
             </label>
           )}
-          <label htmlFor="sch-reason" className="block text-xs mb-2" style={{ color: C.mute }}>Reason (the client sees this)
+          <label htmlFor="sch-reason" className="block text-xs mb-2" style={{ color: C.mute }}>Reason (private)
             <input id="sch-reason" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} className={input} style={fs} />
           </label>
           <label className="flex items-center gap-2 text-sm mb-2"><input type="checkbox" checked={form.all} onChange={(e) => setForm({ ...form, all: e.target.checked })} /> Apply to every client</label>
@@ -397,7 +397,7 @@ export function YourData({ project }) {
   const download = async () => {
     setBusy("Collecting your data…");
     const pid = project.id;
-    const tables = ["updates", "issues", "decisions", "requests", "request_messages", "project_services", "invoices", "expenses", "files", "metrics", "schedule_changes"];
+    const tables = ["updates", "issues", "decisions", "requests", "request_messages", "project_services", "invoices", "expenses", "files", "metrics"];
     const out = { exported_at: new Date().toISOString(), notice_version: PRIVACY_VERSION, profile, project };
     for (const t of tables) { const { data } = await supabase.from(t).select("*").eq("project_id", pid); out[t] = data || []; }
     out.activity = (await supabase.from("audit_log").select("at,actor_name,summary").or(`project_id.eq.${pid},actor_id.eq.${session.user.id}`).order("at")).data || [];

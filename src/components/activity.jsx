@@ -103,13 +103,10 @@ export function Timeline({ project }) {
 
   if ([log, upd, dec, inv, chg].some((x) => !x.rows)) return <P>Loading…</P>;
   const now = today();
-  // The next four weekly slots, with any skip or move shown
-  const weeks = schedule(chg.rows, pid, 6).filter((s) => (s.at || s.slot) > new Date()).slice(0, 4).map((s) => {
-    const why = s.change?.reason ? ` (${s.change.reason.replace(/\.$/, "")})` : "";
-    if (!s.change) return { day: istDate(s.slot), what: `Weekly update on this page (${weeklyLabel(s.slot)})`, kind: "update" };
-    if (s.change.action === "skip") return { day: istDate(s.slot), what: `No update on ${weeklyLabel(s.slot)}: skipped${why}`, kind: "skip" };
-    return { day: istDate(s.at), what: `Weekly update moved from ${weeklyLabel(s.slot)} to ${weeklyLabel(s.at)}${why}`, kind: "update" };
-  });
+  // The next weekly updates at their actual times. Skipped or moved dates are never mentioned to the client.
+  const started = upd.rows.some((u) => u.kind === "meeting" && u.publish_at && new Date(u.publish_at) <= new Date());
+  const weeks = schedule(chg.rows, pid, 6).filter((s) => s.at && s.at > new Date()).sort((a, b) => a.at - b.at).slice(0, 4)
+    .map((s, i) => ({ day: istDate(s.at), what: !started && i === 0 ? `Weekly updates start on this page (${weeklyLabel(s.at)}), then every Tuesday` : `Weekly update on this page (${weeklyLabel(s.at)})`, kind: "update" }));
   const ahead = [
     ...weeks,
     ...upd.rows.filter((u) => u.status === "Scheduled" && u.happened_on >= now).map((u) => ({ day: u.happened_on, what: u.title, kind: "plan" })),
@@ -135,7 +132,7 @@ export function Timeline({ project }) {
     if (!groups.length || groups.at(-1)[0] !== d) groups.push([d, []]);
     groups.at(-1)[1].push(e);
   }
-  const TONE = { update: "info", plan: "info", you: "warn", skip: "info" };
+  const TONE = { update: "info", plan: "info", you: "warn" };
   return (
     <div>
       <H2>Coming up</H2>
@@ -143,7 +140,7 @@ export function Timeline({ project }) {
         {ahead.map((a, i) => (
           <li key={i} className="flex gap-3 py-1 text-sm">
             <span className="whitespace-nowrap" style={{ color: C.mute, minWidth: 92, fontVariantNumeric: "tabular-nums" }}>{fmtDate(a.day)}</span>
-            <span><Chip tone={TONE[a.kind]}>{a.kind === "you" ? "You" : a.kind === "update" ? "Update" : a.kind === "skip" ? "Skipped" : "Planned"}</Chip> {a.what}</span>
+            <span><Chip tone={TONE[a.kind]}>{a.kind === "you" ? "You" : a.kind === "update" ? "Update" : "Planned"}</Chip> {a.what}</span>
           </li>
         ))}
       </ul>

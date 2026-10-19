@@ -45,7 +45,7 @@ values ('tailbone-treatment', (select id from public.clients where name = 'Dr Ra
   'Website redesign, Google Ads, website maintenance and local SEO for the Delhi clinic.',
   'Brief received Sat 17 Oct 2026, 13:00. Work started the same day at 15:00.',
   '2026-10-17', '2026-10-19 11:00+05:30',
-  'Kick-off update: old ads stopped, new Search campaign and monthly cap. After this, every Tuesday at 11:00.', 'tailbone-ads-2026-10');
+  'Kick-off update: old ads stopped, new Search campaign and monthly cap. Weekly updates start next Tuesday, 27 Oct, at 11:00.', 'tailbone-ads-2026-10');
 
 insert into public.project_services (project_id, service_key, name, kind, price, status, start_on, note) values
 (${P}, 'ads-audit', 'Google Ads audit and rebuild', 'one-time', 12000, 'Done', '2026-10-17', 'Audit 17–18 Oct. Search | Tailbone | Delhi NCR | Oct 2026 published 18 Oct, starts 19 Oct.'),
