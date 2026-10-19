@@ -93,7 +93,7 @@ export function MySignIns({ userId }) {
 /* ───────── client timeline: what's next, then everything that happened ───────── */
 export function Timeline({ project }) {
   const pid = project.id;
-  const log = useRows(() => supabase.from("audit_log").select("id,at,actor_name,actor_role,summary").eq("project_id", pid).order("at", { ascending: false }).limit(300), [pid]);
+  const log = useRows(() => supabase.from("audit_log").select("id,at,actor_name,actor_role,summary").eq("project_id", pid).eq("client_visible", true).order("at", { ascending: false }).limit(300), [pid]);
   const upd = useRows(() => supabase.from("updates").select("id,happened_on,publish_at,created_at,title,kind,status").eq("project_id", pid).eq("client_visible", true), [pid]);
   const dec = useRows(() => supabase.from("decisions").select("question,due_on,status,answer").eq("project_id", pid).eq("client_visible", true).eq("status", "open"), [pid]);
   const inv = useRows(() => supabase.from("invoices").select("number,due_on,status").eq("project_id", pid).eq("status", "sent"), [pid]);
