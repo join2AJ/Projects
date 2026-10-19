@@ -13,6 +13,8 @@ const OWNER = { me: "Ajay", client: "You", both: "Both" };
 const OWNER_ADMIN = { me: "Me", client: "Client", both: "Both" };
 // Action points: open → done. Workable points: noted → working on it → done. Either can be dropped.
 const STATUS = { open: ["Open", "warn"], in_progress: ["Working on it", "info"], done: ["Done", "good"], dropped: ["Dropped", "info"] };
+export const PRIORITY = { 1: ["P1 Now", "bad"], 2: ["P2 Next", "warn"], 3: ["P3 Later", "info"] };
+const byPriority = (a, b) => (a.priority ?? 9) - (b.priority ?? 9) || a.sort - b.sort || a.created_at.localeCompare(b.created_at);
 const statusLabel = (i) => (i.kind === "workable" && i.status === "open" ? ["Noted", "info"] : STATUS[i.status]);
 const NEXT = { action: [["open", "Open"], ["done", "Done"], ["dropped", "Drop"]], workable: [["open", "Noted"], ["in_progress", "Working on it"], ["done", "Done"], ["dropped", "Drop"]], discussion: [] };
 const input = "mt-1 w-full px-2 py-1.5 rounded text-sm";
@@ -30,18 +32,18 @@ export const meetingText = (m, items, client = false) => {
     const list = items.filter((i) => i.kind === k && i.status !== "dropped");
     if (!list.length) continue;
     lines.push("", label);
-    list.forEach((i, n) => lines.push(`${n + 1}. ${i.body}${i.owner ? ` [${who[i.owner]}${i.due_on ? `, by ${fmtDate(i.due_on)}` : ""}]` : ""}${i.kind !== "discussion" && i.status !== "open" ? ` (${statusLabel(i)[0]})` : ""}`));
+    list.forEach((i, n) => lines.push(`${n + 1}. ${i.priority && !["done", "dropped"].includes(i.status) ? `(${PRIORITY[i.priority][0]}) ` : ""}${i.body}${i.owner ? ` [${who[i.owner]}${i.due_on ? `, by ${fmtDate(i.due_on)}` : ""}]` : ""}${i.kind !== "discussion" && i.status !== "open" ? ` (${statusLabel(i)[0]})` : ""}`));
   }
   return lines.join("\n");
 };
 
 function ItemForm({ item, meetingId, kind, onDone }) {
-  const [f, setF] = useState(item || { kind, body: "", owner: kind === "action" ? "me" : "", due_on: "", client_visible: false });
+  const [f, setF] = useState(item || { kind, body: "", owner: kind === "action" ? "me" : "", due_on: "", priority: "", client_visible: false });
   const [msg, setMsg] = useState(null);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
   const save = async (e) => {
     e.preventDefault();
-    const body = { kind: f.kind, body: f.body, owner: f.owner || null, due_on: f.due_on || null, client_visible: !!f.client_visible };
+    const body = { kind: f.kind, body: f.body, owner: f.owner || null, due_on: f.due_on || null, priority: f.priority ? Number(f.priority) : null, client_visible: !!f.client_visible };
     const { error } = item ? await supabase.from("meeting_items").update(body).eq("id", item.id) : await supabase.from("meeting_items").insert({ ...body, meeting_id: meetingId });
     if (error) return setMsg(error.message);
     onDone();
@@ -58,7 +60,10 @@ function ItemForm({ item, meetingId, kind, onDone }) {
         <select name="owner" value={f.owner || ""} onChange={set("owner")} className={input} style={fs}><option value="">—</option><option value="me">Me</option><option value="client">Client</option><option value="both">Both</option></select>
       </label>
       <label className="block text-xs" style={{ color: C.mute }}>By<input name="due_on" type="date" value={f.due_on || ""} onChange={set("due_on")} className={input} style={fs} /></label>
-      <label className="flex items-center gap-2 text-sm md:col-span-2 pb-1"><input type="checkbox" checked={!!f.client_visible} onChange={set("client_visible")} /> Share with client</label>
+      <label className="block text-xs" style={{ color: C.mute }}>Priority
+        <select name="priority" value={f.priority || ""} onChange={set("priority")} className={input} style={fs}><option value="">—</option>{Object.entries(PRIORITY).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}</select>
+      </label>
+      <label className="flex items-center gap-2 text-sm pb-1"><input type="checkbox" checked={!!f.client_visible} onChange={set("client_visible")} /> Share with client</label>
       <div className="flex gap-2 items-center pb-1">
         <button type="submit" className="px-3 py-1 rounded text-sm font-semibold" style={btn}>Save</button>
         <button type="button" className="text-xs underline" onClick={onDone}>Cancel</button>
@@ -81,6 +86,7 @@ function Items({ list, admin, onChange }) {
         <li key={i.id} className="py-1" style={{ opacity: i.status === "dropped" ? 0.5 : 1 }}>
           <span style={{ textDecoration: i.status === "done" && i.kind === "action" ? "line-through" : "none" }}>{i.body}</span>
           <span className="ml-2 text-xs" style={{ color: C.mute }}>
+            {i.priority && i.status !== "done" && i.status !== "dropped" && <><Chip tone={PRIORITY[i.priority][1]}>{PRIORITY[i.priority][0]}</Chip>{" "}</>}
             {i.owner && <b>{(admin ? OWNER_ADMIN : OWNER)[i.owner]}</b>}{i.due_on && ` · by ${fmtDate(i.due_on)}`}{" "}
             {i.kind !== "discussion" && <Chip tone={statusLabel(i)[1]}>{statusLabel(i)[0]}</Chip>}
           </span>
@@ -138,7 +144,7 @@ function MeetingForm({ projectId, m, onDone }) {
 
 function Meeting({ m, items, admin, onChange, onEdit }) {
   const [copied, setCopied] = useState(false);
-  const mine = items.filter((i) => i.meeting_id === m.id).sort((a, b) => a.sort - b.sort || a.created_at.localeCompare(b.created_at));
+  const mine = items.filter((i) => i.meeting_id === m.id).sort(byPriority);
   const share = async () => { await supabase.from("meetings").update({ client_visible: !m.client_visible }).eq("id", m.id); onChange(); };
   const copy = async () => { try { await navigator.clipboard.writeText(meetingText(m, mine, true)); setCopied(true); } catch { setCopied(false); } };
   const open = mine.filter((i) => i.kind === "action" && i.status === "open").length;
@@ -208,7 +214,8 @@ export function MeetingNotes({ projectId, admin = false }) {
 
 /* Admin dashboard: open action points across projects. */
 export function OpenActions({ projects }) {
-  const { rows } = useRows(() => supabase.from("meeting_items").select("id,project_id,body,owner,due_on").eq("kind", "action").eq("status", "open").order("due_on", { nullsFirst: false }), []);
+  const { rows } = useRows(() => supabase.from("meeting_items").select("id,project_id,body,owner,due_on,priority").eq("kind", "action").in("status", ["open", "in_progress"])
+    .order("priority", { nullsFirst: false }).order("due_on", { nullsFirst: false }), []);
   const name = Object.fromEntries(projects.map((p) => [p.id, p]));
   return (
     <Card>
@@ -216,7 +223,7 @@ export function OpenActions({ projects }) {
       {!rows?.length ? <div className="text-sm" style={{ color: C.mute }}>None. Add them after each call under the project’s Meetings tab.</div> : (
         <ul className="text-sm grid gap-1">
           {rows.slice(0, 8).map((i) => (
-            <li key={i.id}><b>{name[i.project_id]?.name}</b>: {i.body} <span className="text-xs" style={{ color: C.mute }}>{OWNER_ADMIN[i.owner] || ""}{i.due_on ? ` · by ${fmtDate(i.due_on)}` : ""}</span></li>
+            <li key={i.id}>{i.priority && <Chip tone={PRIORITY[i.priority][1]}>{PRIORITY[i.priority][0]}</Chip>} <b>{name[i.project_id]?.name}</b>: {i.body} <span className="text-xs" style={{ color: C.mute }}>{OWNER_ADMIN[i.owner] || ""}{i.due_on ? ` · by ${fmtDate(i.due_on)}` : ""}</span></li>
           ))}
           {rows.length > 8 && <li className="text-xs" style={{ color: C.mute }}>and {rows.length - 8} more</li>}
         </ul>
