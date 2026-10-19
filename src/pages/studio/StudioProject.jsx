@@ -16,6 +16,8 @@ import { FeesEditor } from "../../components/pricing.jsx";
 import { AuditTrail, Timeline } from "../../components/activity.jsx";
 import { draftWeekly, thisWeek, weeklyLabel, KIND_LABEL, loadChanges } from "../../lib/weekly.js";
 import { ScheduleEditor, RequestThreads, CredentialsPanel, WorkLog, MoneySwitch } from "../../components/collab.jsx";
+import { MeetingNotes } from "../../components/meetings.jsx";
+import { ClientActivity } from "../../components/insights.jsx";
 import { WEEKLY, answerBy } from "../../data/studio.js";
 
 const field = "mt-1 w-full px-2 py-1.5 rounded text-sm";
@@ -245,10 +247,10 @@ export default function StudioProject() {
   const nextNumber = `INV-${year}-${String(seq + 1).padStart(3, "0")}`;
   const nextDay = thisWeek(chg.rows || [], id).day;
   const tabs = [
-    ["overview", "Overview"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"], ["time", "Time"],
+    ["overview", "Overview"], ["meetings", "Meetings"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"], ["time", "Time"],
     ["files", "Files"], ["requests", "Requests"], ["work", "Work done"], ["numbers", "Numbers"],
     ...(p.report_key && REPORTS[p.report_key] ? [["report", "Report"]] : []),
-    ["timeline", "Client timeline"], ["activity", "Activity"],
+    ["timeline", "Client timeline"], ["seen", "What the client views"], ["activity", "Activity"],
     ["access", "Client access"], ["logins", "Tools and logins"],
   ];
 
@@ -320,6 +322,8 @@ export default function StudioProject() {
       {tab === "requests" && <RequestThreads projectId={id} admin />}
       {tab === "work" && <WorkLog projectId={id} reportKey={p.report_key} admin onOpenReport={() => setTab("report")} />}
       {tab === "logins" && <CredentialsPanel projectId={id} />}
+      {tab === "meetings" && <MeetingNotes projectId={id} admin />}
+      {tab === "seen" && <ClientActivity projectId={id} />}
 
       {tab === "numbers" && (<>
         <MetricsImport projectId={id} onDone={() => setBump(bump + 1)} />

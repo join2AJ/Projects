@@ -107,16 +107,21 @@ export function ScheduleEditor({ projectId, onChange }) {
 /* ───────── request conversations (client and admin) ───────── */
 const REQ_STATUS = { new: ["New", "warn"], accepted: ["Accepted", "info"], in_progress: ["In progress", "info"], done: ["Done", "good"], declined: ["Declined", "info"] };
 
-function Thread({ req, admin, onChange }) {
+function Thread({ req, admin, onChange, draft }) {
   const { rows, reload } = useRows(() => supabase.from("request_messages").select("*").eq("request_id", req.id).order("created_at"), [req.id]);
-  const [body, setBody] = useState("");
+  const [body, setBody] = useState(draft || "");
   const [msg, setMsg] = useState(null);
   const send = async (e) => {
     e.preventDefault();
     if (!body.trim()) return;
     const { error } = await supabase.from("request_messages").insert({ request_id: req.id, body });
     if (error) return setMsg(error.message);
-    setBody(""); reload();
+    if (admin && draft != null) await supabase.from("reply_drafts").delete().eq("request_id", req.id);
+    setBody(""); setMsg(null); reload(); onChange();
+  };
+  const saveDraft = async () => {
+    const { error } = await supabase.from("reply_drafts").upsert({ request_id: req.id, body, updated_at: new Date().toISOString() });
+    setMsg(error ? error.message : "Draft saved. Only you can see it.");
   };
   const setStatus = async (status) => { await supabase.from("requests").update({ status }).eq("id", req.id); onChange(); };
   const [label, tone] = REQ_STATUS[req.status] || [req.status, "info"];
@@ -143,18 +148,30 @@ function Thread({ req, admin, onChange }) {
         ))}
         {rows && !rows.length && !req.reply && <li className="text-xs py-1" style={{ color: C.mute }}>No replies yet.</li>}
       </ul>
-      <form onSubmit={send} className="flex gap-2">
-        <label htmlFor={`reply-${req.id}`} className="sr-only">Reply</label>
-        <input id={`reply-${req.id}`} value={body} onChange={(e) => setBody(e.target.value)} maxLength={5000} placeholder="Write a reply…" className="flex-1 px-2 py-1.5 rounded text-sm" style={{ ...fs, minWidth: 0 }} />
-        <button type="submit" className="px-3 py-1 rounded text-sm font-semibold" style={btn()}>Send</button>
-      </form>
-      {msg && <div className="text-xs mt-1" style={{ color: C.bad }}>{msg}</div>}
+      {admin && draft != null ? (
+        <form onSubmit={send}>
+          <label htmlFor={`reply-${req.id}`} className="block text-xs mb-1" style={{ color: C.warn }}><b>Draft reply, not shared yet.</b> Edit it, then press Share reply.</label>
+          <textarea id={`reply-${req.id}`} rows={6} value={body} onChange={(e) => setBody(e.target.value)} maxLength={5000} className="w-full px-2 py-1.5 rounded text-sm" style={{ ...fs, borderColor: C.warn }} />
+          <div className="flex gap-3 items-center mt-1">
+            <button type="submit" className="px-3 py-1 rounded text-sm font-semibold" style={btn()}>Share reply</button>
+            <button type="button" onClick={saveDraft} className="text-sm underline" style={{ color: C.deep }}>Save draft</button>
+          </div>
+        </form>
+      ) : (
+        <form onSubmit={send} className="flex gap-2">
+          <label htmlFor={`reply-${req.id}`} className="sr-only">Reply</label>
+          <input id={`reply-${req.id}`} value={body} onChange={(e) => setBody(e.target.value)} maxLength={5000} placeholder="Write a reply…" className="flex-1 px-2 py-1.5 rounded text-sm" style={{ ...fs, minWidth: 0 }} />
+          <button type="submit" className="px-3 py-1 rounded text-sm font-semibold" style={btn()}>Send</button>
+        </form>
+      )}
+      {msg && <div className="text-xs mt-1" style={{ color: msg.startsWith("Draft saved") ? C.good : C.bad }}>{msg}</div>}
     </div>
   );
 }
 
 export function RequestThreads({ projectId, admin = false }) {
   const { rows, reload } = useRows(() => supabase.from("requests").select("*").eq("project_id", projectId).order("created_at", { ascending: false }), [projectId]);
+  const drafts = useRows(() => (admin ? supabase.from("reply_drafts").select("*") : Promise.resolve({ data: [] })), [admin]);
   const [state, setState] = useState(null);
   const send = async (e) => {
     e.preventDefault();
@@ -188,7 +205,10 @@ export function RequestThreads({ projectId, admin = false }) {
       </>)}
       <H2>{admin ? "Requests and conversations" : "Your requests and replies"}</H2>
       <P style={{ color: C.mute }}>Every request and message is kept with its date and time. Nothing here can be edited or deleted.</P>
-      {!rows ? <P>Loading…</P> : !rows.length ? <P style={{ color: C.mute }}>No requests yet.</P> : rows.map((r) => <Thread key={r.id} req={r} admin={admin} onChange={reload} />)}
+      {!rows ? <P>Loading…</P> : !rows.length ? <P style={{ color: C.mute }}>No requests yet.</P> : rows.map((r) => {
+        const d = (drafts.rows || []).find((x) => x.request_id === r.id);
+        return <Thread key={r.id + (d ? "d" : "") + (drafts.rows ? "" : "l")} req={r} admin={admin} draft={d?.body} onChange={() => { reload(); drafts.reload(); }} />;
+      })}
     </div>
   );
 }

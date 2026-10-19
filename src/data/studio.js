@@ -128,7 +128,7 @@ export const OFFBOARDING = [
 
 /* Privacy notice under the Digital Personal Data Protection Act, 2023. Bump the version when the text changes:
    every client is then asked to read and accept it again. */
-export const PRIVACY_VERSION = "v1-2026-10";
+export const PRIVACY_VERSION = "v2-2026-10";
 export const PRIVACY = {
   fiduciary: "Ajay Kumar (Data Fiduciary)",
   contact: "join2ajkumar@gmail.com",
@@ -137,6 +137,7 @@ export const PRIVACY = {
     "Your clinic or business details, and the services and fees agreed",
     "What you send here: requests, messages, decision answers and files",
     "Sign-in times and a record of changes (audit trail)",
+    "Which pages and sections of this portal you open, and when, so Ajay can see what is useful to you and follow up",
   ],
   purpose: "Only to run your project: plan and report the work, keep records of decisions and payments, and keep the account secure. Nothing is sold or used for advertising.",
   where: "Stored encrypted with our hosting provider Supabase in Mumbai, India, and served over HTTPS through Vercel.",

@@ -1,8 +1,10 @@
+import { useEffect } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { C, FB, FH } from "./ui.jsx";
 import { STUDIO } from "../data/studio.js";
 import { useAuth, emailToLogin, signOut } from "../lib/auth.jsx";
 import { ConsentGate } from "./collab.jsx";
+import { track } from "../lib/track.js";
 
 const ADMIN = [["/studio", "Dashboard"], ["/studio/users", "People"], ["/studio/pricing", "Price list"], ["/studio/activity", "Activity"], ["/studio/compare", "Compare"], ["/security", "Security"], ["/account", "Account"]];
 const CLIENT = [["/portal", "My projects"], ["/services", "Services"], ["/process", "How we work"], ["/security", "Security"], ["/account", "Account"]];
@@ -10,7 +12,10 @@ const CLIENT = [["/portal", "My projects"], ["/services", "Services"], ["/proces
 export default function Layout() {
   const { session, profile } = useAuth();
   const links = !session || !profile ? [] : profile.is_owner ? ADMIN : CLIENT;
-  const open = ["/login", "/privacy"].includes(useLocation().pathname);
+  const path = useLocation().pathname;
+  const open = ["/login", "/privacy"].includes(path);
+  // Client page views (project sections are recorded by the project page itself)
+  useEffect(() => { if (profile && !profile.is_owner && !path.startsWith("/portal/p/")) track(path); }, [path, profile]);
   return (
     <div style={{ background: C.bg, minHeight: "100vh", fontFamily: FB, color: C.ink }}>
       <header style={{ background: C.card, borderBottom: `1px solid ${C.rule}` }}>

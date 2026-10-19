@@ -1,5 +1,5 @@
 /* What a client sees after signing in: their projects, and one project in detail. */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase.js";
 import { useAuth } from "../../lib/auth.jsx";
@@ -9,6 +9,8 @@ import { StageBar, UpdatesList, IssuesList, DueBanner, MoneyClient, MetricsPanel
 import { REPORTS } from "../../projects/reports.js";
 import { Timeline } from "../../components/activity.jsx";
 import { RequestThreads, WorkLog, YourData } from "../../components/collab.jsx";
+import { MeetingNotes } from "../../components/meetings.jsx";
+import { track } from "../../lib/track.js";
 
 export function Portal() {
   const { session, profile } = useAuth();
@@ -57,12 +59,14 @@ export function PortalProject() {
   const { slug } = useParams();
   const { rows, error } = useRows(() => supabase.from("projects").select("*").eq("slug", slug), [slug]);
   const [tab, setTab] = useState("overview");
+  const p0 = rows?.[0];
+  useEffect(() => { if (p0) track(`/portal/p/${p0.slug}`, p0.id, tab); }, [p0?.id, tab]);
   if (error) return <Box tone="bad" title="Could not load">{error.message}</Box>;
   if (!rows) return <P>Loading…</P>;
   const p = rows[0];
   if (!p) return <Box tone="warn" title="Project not found">This project is not shared with your email. <Link to="/portal" className="underline">Your projects</Link></Box>;
   const tabs = [
-    ["overview", "Overview"], ["timeline", "Timeline"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"],
+    ["overview", "Overview"], ["timeline", "Timeline"], ["meetings", "Meeting notes"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"],
     ["files", "Files"], ["requests", "Requests"], ["work", "Work done"], ["numbers", "Numbers"],
     ...(p.report_key && REPORTS[p.report_key] ? [["report", REPORTS[p.report_key].label]] : []),
     ["data", "Your data"],
@@ -76,6 +80,7 @@ export function PortalProject() {
       {tab === "overview" && <Overview p={p} go={setTab} />}
       {tab === "decisions" && <DecisionsClient projectId={p.id} />}
       {tab === "timeline" && <Timeline project={p} />}
+      {tab === "meetings" && <MeetingNotes projectId={p.id} />}
       {tab === "updates" && <UpdatesList projectId={p.id} />}
       {tab === "issues" && <IssuesList projectId={p.id} />}
       {tab === "money" && (p.money_open ? <MoneyClient projectId={p.id} /> : (

@@ -9,6 +9,7 @@ import { RECURRING } from "../../lib/schema.js";
 import { STUDIO, STAGES, WEEKLY, ACTIVE_STAGES, nextWeeklyUpdate } from "../../data/studio.js";
 import { draftWeekly, thisWeek, weeklyLabel, schedule, loadChanges, WEEKLY_KIND } from "../../lib/weekly.js";
 import { C, inr, Chip, H1, H2, P, Box, T, Card } from "../../components/ui.jsx";
+import { OpenActions } from "../../components/meetings.jsx";
 
 const ym = (d) => d.slice(0, 7);
 const monthsBack = (n) => {
@@ -246,6 +247,7 @@ export default function Dashboard() {
             );
           })()}
         </Card>
+        <OpenActions projects={projects.rows} />
         <PrivacyCard projects={projects.rows} />
         <Card>
           <div className="font-semibold text-sm mb-2" style={{ color: C.deep }}>Open issues</div>
