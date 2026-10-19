@@ -17,7 +17,7 @@ export const PROJECTS = [
     services: [
       { id: "ads-audit", status: "Done", note: "Audit 17–18 Oct. Search | Tailbone | Delhi NCR | Oct 2026 published 18 Oct, starts 19 Oct." },
       { id: "ads-management", status: "Proposed", note: "From 19 Oct. Ad budget ₹200/day, ceiling ₹10,000/month incl. GST, paid to Google." },
-      { id: "website-redesign", status: "In progress", note: "New site built (booking, ₹800 consultation, ₹500 follow-up). Needs the clinic’s own domain." },
+      { id: "website-redesign", status: "In progress", note: "New site built (booking, ₹800 consultation, ₹500 follow-up). Goes live on the clinic’s own domain, tailbonetreatment.com, replacing the old WordPress site." },
       { id: "maintenance", status: "Proposed", note: "Long term, from launch of the new site." },
       { id: "seo", status: "Proposed", note: "Long term. Starts with the Google Business Profile and the new site." },
     ],

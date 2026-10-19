@@ -50,7 +50,7 @@ values ('tailbone-treatment', (select id from public.clients where name = 'Dr Ra
 insert into public.project_services (project_id, service_key, name, kind, price, status, start_on, note) values
 (${P}, 'ads-audit', 'Google Ads audit and rebuild', 'one-time', 12000, 'Done', '2026-10-17', 'Audit 17–18 Oct. Search | Tailbone | Delhi NCR | Oct 2026 published 18 Oct, starts 19 Oct.'),
 (${P}, 'ads-management', 'Google Ads management', 'monthly', 5000, 'Proposed', '2026-10-19', 'Ad budget ₹200/day, ceiling ₹10,000/month incl. GST, paid by the clinic to Google.'),
-(${P}, 'website-redesign', 'Website redesign', 'one-time', 35000, 'In progress', null, 'New site built (booking, ₹800 consultation, ₹500 follow-up). Needs the clinic’s own domain.'),
+(${P}, 'website-redesign', 'Website redesign', 'one-time', 35000, 'In progress', null, 'New site built (booking, ₹800 consultation, ₹500 follow-up). Goes live on the clinic’s own domain, tailbonetreatment.com, replacing the old WordPress site.'),
 (${P}, 'maintenance', 'Website maintenance', 'monthly', 3000, 'Proposed', null, 'Long term, from launch of the new site.'),
 (${P}, 'seo', 'Local SEO', 'monthly', 8000, 'Proposed', null, 'Long term. Starts with the Google Business Profile and the new site.');
 

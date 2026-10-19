@@ -129,7 +129,7 @@ const ISSUES = [
     fix: "Limit to the cities patients can actually reach (Delhi NCR, Bangalore), using Presence targeting. Keep other states only if the doctor travels or consults online." },
   { sev: "warn", sl: "High", lvl: "Fact", t: "The clinic has two websites that disagree",
     ev: "tailbonetreatment.com is the older WordPress site: it still lists a Bangalore clinic and calls itself India’s No. 1. The newer site (tailbone.onrender.com, canonical tailbone.netlify.app) lists New Delhi, online, Lucknow soon and Bengaluru closed, with a booking system, consultation ₹800 and follow-up ₹500. The old conversion tags belong to the old site.",
-    fix: "Pick one live address on the clinic’s own domain and point it at the new site. Remove Bangalore and superlative claims from the old pages. Install and test the Google tag on the new site before ads go live." },
+    fix: "Move the new site onto the clinic’s own domain, tailbonetreatment.com, so there is one site. Until then, remove Bangalore and superlative claims from the old pages. Install and test the Google tag on the new site before ads go live." },
   { sev: "bad", sl: "High", lvl: "Fact", t: "PMax-5 keeps being reset, so it never settles",
     ev: "Budget ₹230 to ₹380 (18 Sep), then ₹380 to ₹180 (29 Sep). Locations edited on 18 Sep and 25 Sep. New headlines, long headlines, search themes and the audience persona were replaced on 16 Oct.",
     fix: "Freeze both PMax campaigns for 14 days except for the conversion and geography fixes. Then judge on real enquiries only." },
@@ -921,7 +921,7 @@ function OwnerBrief() {
     ["4", "Say who can edit the website and Google Tag Manager (the footer credits ARQ IT Solutions)", "This week"],
     ["5", "Tell us the average number of visits per patient and what each visit earns", "This week"],
     ["6", "Decide on negative keywords after seeing the real searches", "21 Oct (day 3)"],
-    ["7", "Decide whether to point the clinic’s own domain at the new website", "This month"],
+    ["7", "Point the clinic’s domain, tailbonetreatment.com, at the new website", "This month"],
     ["8", "Give the Lucknow opening date, so a separate campaign can be planned", "When known"],
   ];
   const ajay = [
