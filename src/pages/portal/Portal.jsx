@@ -10,6 +10,7 @@ import { REPORTS } from "../../projects/reports.js";
 import { Timeline } from "../../components/activity.jsx";
 import { RequestThreads, WorkLog, YourData } from "../../components/collab.jsx";
 import { MeetingNotes } from "../../components/meetings.jsx";
+import { PromotionPlan } from "../../components/promotion.jsx";
 import { track } from "../../lib/track.js";
 
 export function Portal() {
@@ -66,7 +67,7 @@ export function PortalProject() {
   const p = rows[0];
   if (!p) return <Box tone="warn" title="Project not found">This project is not shared with your email. <Link to="/portal" className="underline">Your projects</Link></Box>;
   const tabs = [
-    ["overview", "Overview"], ["timeline", "Timeline"], ["meetings", "Meeting notes"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"],
+    ["overview", "Overview"], ["timeline", "Timeline"], ["meetings", "Meeting notes"], ["promotion", "Promotion plan"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"],
     ["files", "Files"], ["requests", "Requests"], ["work", "Work done"], ["numbers", "Numbers"],
     ...(p.report_key && REPORTS[p.report_key] ? [["report", REPORTS[p.report_key].label]] : []),
     ["data", "Your data"],
@@ -81,6 +82,7 @@ export function PortalProject() {
       {tab === "decisions" && <DecisionsClient projectId={p.id} />}
       {tab === "timeline" && <Timeline project={p} />}
       {tab === "meetings" && <MeetingNotes projectId={p.id} />}
+      {tab === "promotion" && <PromotionPlan projectId={p.id} />}
       {tab === "updates" && <UpdatesList projectId={p.id} />}
       {tab === "issues" && <IssuesList projectId={p.id} />}
       {tab === "money" && (p.money_open ? <MoneyClient projectId={p.id} /> : (

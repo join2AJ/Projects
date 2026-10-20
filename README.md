@@ -83,7 +83,7 @@ notes are compiled out of the live site and appear only in `npm run dev`. Use pr
 ### 1. Database (Supabase)
 
 1. Create a Supabase project (free plan allows 2 active projects; pause one if both are used).
-2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`, `0005_weekly_updates.sql`, `0006_price_list_and_discounts.sql`, `0007_audit_trail.sql`, `0008_schedule_threads_fees_privacy.sql`, `0009_credentials_vault.sql`, `0010_schedule_changes_private.sql`, `0011_respond_fee_done_work.sql`, `0012_money_coming_soon.sql`, `0013_meetings_drafts_page_views.sql`, `0014_meeting_items_share.sql`, `0015_meeting_items_priority.sql`
+2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`, `0005_weekly_updates.sql`, `0006_price_list_and_discounts.sql`, `0007_audit_trail.sql`, `0008_schedule_threads_fees_privacy.sql`, `0009_credentials_vault.sql`, `0010_schedule_changes_private.sql`, `0011_respond_fee_done_work.sql`, `0012_money_coming_soon.sql`, `0013_meetings_drafts_page_views.sql`, `0014_meeting_items_share.sql`, `0015_meeting_items_priority.sql`, `0016_promotion_plan.sql`
    (and `supabase/seed/price_list.sql`)
    (and `supabase/seed/tailbone_decisions.sql` for the 19 Oct meeting).
    Deploy `supabase/functions/admin-users` (Edge Functions).
@@ -144,6 +144,10 @@ username, password and the `/login` address yourself.
   weekday or hour; filter by person, section and dates; plus what they did. Your own views are not recorded.
 - **Draft replies:** a prepared reply sits under a request as “Draft reply, not shared yet”. Edit it and press
   **Share reply**; only then does the client see it.
+- **Promotion plan:** project → Promotion plan. Every channel (Google Ads, website, Google Business Profile, Instagram
+  and Facebook, influencers, Meta ads, referral partners, WhatsApp, reviews, measurement) with its strategies:
+  status, priority, monthly budget, who, and how success is measured. Planned ad spend is checked against the
+  client's limit (project Overview → ad spend limit). Share points one by one; the client sees only those.
 - **Requests:** a conversation per request. Both sides reply; you set the status. Nothing can be edited or deleted.
 - **Work done:** project → Work done → **Log work** for each audit, report or piece of work (approve it on
   Updates for the client to see). Done work and milestones, the report and report files are listed in one place.

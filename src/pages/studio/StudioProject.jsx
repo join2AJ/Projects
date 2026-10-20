@@ -18,6 +18,7 @@ import { draftWeekly, thisWeek, weeklyLabel, KIND_LABEL, loadChanges } from "../
 import { ScheduleEditor, RequestThreads, CredentialsPanel, WorkLog, MoneySwitch } from "../../components/collab.jsx";
 import { MeetingNotes } from "../../components/meetings.jsx";
 import { ClientActivity } from "../../components/insights.jsx";
+import { PromotionPlan } from "../../components/promotion.jsx";
 import { WEEKLY, answerBy } from "../../data/studio.js";
 
 const field = "mt-1 w-full px-2 py-1.5 rounded text-sm";
@@ -44,7 +45,7 @@ export function ProjectForm({ initial, onSaved }) {
     const body = {
       slug: p.slug, name: p.name, stage: p.stage, client_id, summary: p.summary || null, brief: p.brief || null,
       started_on: p.started_on || null, ended_on: p.ended_on || null, report_key: p.report_key || null,
-      next_meeting_at: p.next_meeting_at ? new Date(p.next_meeting_at).toISOString() : null, next_meeting_note: p.next_meeting_note || null,
+      next_meeting_at: p.next_meeting_at ? new Date(p.next_meeting_at).toISOString() : null, next_meeting_note: p.next_meeting_note || null, ads_cap: p.ads_cap === "" || p.ads_cap == null ? null : Number(p.ads_cap),
     };
     const { data, error } = p.id
       ? await supabase.from("projects").update(body).eq("id", p.id).select().single()
@@ -76,6 +77,7 @@ export function ProjectForm({ initial, onSaved }) {
         <L label="Ended"><input type="date" value={p.ended_on || ""} onChange={set("ended_on")} className={field} style={fs} /></L>
         <L label="Extra one-off update (optional; weekly updates are every Tuesday 11:00)"><input type="datetime-local" value={localDT} onChange={set("next_meeting_at")} className={field} style={fs} /></L>
         <L label="Extra update about"><input value={p.next_meeting_note || ""} onChange={set("next_meeting_note")} className={field} style={fs} /></L>
+        <L label="Client’s ad spend limit (₹ / month, incl. GST)"><input type="number" min="0" value={p.ads_cap ?? ""} onChange={set("ads_cap")} className={field} style={fs} /></L>
         <L label="Custom report (optional)"><select value={p.report_key || ""} onChange={set("report_key")} className={field} style={fs}><option value="">None</option>{Object.entries(REPORTS).map(([k, r]) => <option key={k} value={k}>{r.label}</option>)}</select></L>
       </div>
       <button type="submit" className="px-4 py-2 rounded text-sm font-semibold" style={{ background: C.deep, color: "#fff" }}>{p.id ? "Save project" : "Create project"}</button>
@@ -247,7 +249,7 @@ export default function StudioProject() {
   const nextNumber = `INV-${year}-${String(seq + 1).padStart(3, "0")}`;
   const nextDay = thisWeek(chg.rows || [], id).day;
   const tabs = [
-    ["overview", "Overview"], ["meetings", "Meetings"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"], ["time", "Time"],
+    ["overview", "Overview"], ["meetings", "Meetings"], ["promotion", "Promotion plan"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"], ["time", "Time"],
     ["files", "Files"], ["requests", "Requests"], ["work", "Work done"], ["numbers", "Numbers"],
     ...(p.report_key && REPORTS[p.report_key] ? [["report", "Report"]] : []),
     ["timeline", "Client timeline"], ["seen", "What the client views"], ["activity", "Activity"],
@@ -323,6 +325,7 @@ export default function StudioProject() {
       {tab === "work" && <WorkLog projectId={id} reportKey={p.report_key} admin onOpenReport={() => setTab("report")} />}
       {tab === "logins" && <CredentialsPanel projectId={id} />}
       {tab === "meetings" && <MeetingNotes projectId={id} admin />}
+      {tab === "promotion" && <PromotionPlan projectId={id} admin cap={p.ads_cap} />}
       {tab === "seen" && <ClientActivity projectId={id} />}
 
       {tab === "numbers" && (<>
