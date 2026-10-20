@@ -404,20 +404,36 @@ export function PrivacyPage() {
   return <div><H1>Privacy notice</H1><PrivacyNotice /></div>;
 }
 
-/* Asks a client to accept the current privacy notice once (and again whenever it changes). */
+/*
+ * The full privacy notice blocks the portal only once: until the client has accepted any version. When the notice
+ * changes later, a short banner on top asks them to look at the update; it never blocks them again.
+ */
 export function ConsentGate({ children }) {
   const { session, profile } = useAuth();
-  const { rows, reload } = useRows(() => supabase.from("consents").select("notice_version").eq("user_id", session?.user.id ?? "").eq("notice_version", PRIVACY_VERSION), [session?.user.id]);
+  const { rows, reload } = useRows(() => supabase.from("consents").select("notice_version").eq("user_id", session?.user.id ?? ""), [session?.user.id]);
   const [ok, setOk] = useState(false);
+  const [open, setOpen] = useState(false);
   const [msg, setMsg] = useState(null);
   if (!session || profile?.is_owner) return children;
   if (!rows) return <P>Loading…</P>;
-  if (rows.length) return children;
   const accept = async () => {
     const { error } = await supabase.from("consents").insert({ notice_version: PRIVACY_VERSION });
     if (error) return setMsg(error.message);
-    reload();
+    setOpen(false); reload();
   };
+  if (rows.some((r) => r.notice_version === PRIVACY_VERSION)) return children;
+  if (rows.length) return (
+    <>
+      <div className="p-3 mb-4 text-sm flex flex-wrap items-center gap-3" style={{ background: C.infoBg, borderLeft: `4px solid ${C.info}`, borderRadius: 2 }} role="status">
+        <span className="flex-1" style={{ minWidth: 0 }}>The privacy notice was updated: it now also lists the pages of this portal you open, so Ajay can see what is useful to you.</span>
+        <button className="underline" style={{ color: C.deep }} onClick={() => setOpen(!open)}>{open ? "Hide" : "Read"}</button>
+        <button className="px-3 py-1 rounded font-semibold" style={btn()} onClick={accept}>OK</button>
+      </div>
+      {open && <Card className="mb-4"><PrivacyNotice /></Card>}
+      {msg && <div className="text-sm mb-2" style={{ color: C.bad }}>{msg}</div>}
+      {children}
+    </>
+  );
   return (
     <div className="max-w-3xl">
       <H1>Before you continue</H1>
