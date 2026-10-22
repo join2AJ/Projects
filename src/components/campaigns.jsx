@@ -14,7 +14,7 @@ const fs = { border: `1px solid ${C.rule}`, background: "#fff" };
 const btn = { background: C.deep, color: "#fff" };
 const STATUS = { planned: ["Planned", "info"], live: ["Running", "good"], paused: ["Paused", "warn"], ended: ["Ended", "info"] };
 const DETAILS = [
-  ["type", "Type"], ["started_on", "Started"], ["locations", "Where the ads show"], ["budget", "Budget"], ["networks", "Networks"],
+  ["type", "Type"], ["started_on", "Started"], ["ended_on", "Paused / ended on"], ["locations", "Where the ads show"], ["budget", "Budget"], ["networks", "Networks"],
   ["schedule", "When the ads show"], ["goal", "Goal"], ["bidding", "Bidding"], ["keywords", "Keywords"], ["ads", "The ad"], ["assets", "Extras on the ad"],
   ["landing_url", "Ad opens"], ["notes", "Notes"],
 ];
@@ -127,7 +127,7 @@ function CampaignForm({ projectId, c, onDone }) {
   const save = async (e) => {
     e.preventDefault();
     const body = { project_id: projectId, updated_at: new Date().toISOString() };
-    for (const k of ["name", "platform", "status", "ended_on", ...DETAILS.map(([k]) => k)]) body[k] = f[k] === "" ? null : f[k] ?? null;
+    for (const k of ["name", "platform", "status", ...DETAILS.map(([k]) => k)]) body[k] = f[k] === "" ? null : f[k] ?? null;
     body.client_visible = !!f.client_visible;
     const { error } = c ? await supabase.from("campaigns").update(body).eq("id", c.id) : await supabase.from("campaigns").insert(body);
     if (error) return setMsg(error.message);
@@ -182,7 +182,8 @@ function Campaign({ c, days, admin, onChange }) {
   const ctr = (rows) => { const i = rows.reduce((x, d) => x + Number(d.impressions), 0); return i ? `${((rows.reduce((x, d) => x + Number(d.clicks), 0) / i) * 100).toFixed(2)}%` : "–"; };
   const cpc = (rows) => { const k = rows.reduce((x, d) => x + Number(d.clicks), 0); return k ? rs(Math.round((rows.reduce((x, d) => x + Number(d.cost), 0) / k) * 100) / 100) : "–"; };
   const share = async () => { await supabase.from("campaigns").update({ client_visible: !c.client_visible, updated_at: new Date().toISOString() }).eq("id", c.id); onChange(); };
-  const shown = more ? DETAILS : DETAILS.filter(([k]) => !["keywords", "ads", "assets", "bidding", "notes"].includes(k));
+  const MORE = ["keywords", "ads", "assets", "bidding"];
+  const shown = more ? DETAILS : DETAILS.filter(([k]) => !MORE.includes(k));
   if (edit) return <CampaignForm projectId={c.project_id} c={c} onDone={() => { setEdit(false); onChange(); }} />;
   return (
     <Card className="mb-4">
@@ -200,11 +201,11 @@ function Campaign({ c, days, admin, onChange }) {
         {shown.filter(([k]) => c[k]).map(([k, l]) => (
           <div key={k} className="contents">
             <dt className="py-1" style={{ color: C.mute }}>{l}</dt>
-            <dd className="py-1" style={{ whiteSpace: "pre-wrap" }}>{k === "started_on" ? fmtDate(c[k]) : k === "landing_url" ? <a href={c[k]} target="_blank" rel="noreferrer" className="underline" style={{ color: C.deep }}>{c[k].replace(/^https?:\/\//, "")}</a> : c[k]}</dd>
+            <dd className="py-1" style={{ whiteSpace: "pre-wrap" }}>{k === "started_on" || k === "ended_on" ? fmtDate(c[k]) : k === "landing_url" ? <a href={c[k]} target="_blank" rel="noreferrer" className="underline" style={{ color: C.deep }}>{c[k].replace(/^https?:\/\//, "")}</a> : c[k]}</dd>
           </div>
         ))}
       </dl>
-      {DETAILS.some(([k]) => ["keywords", "ads", "assets", "bidding", "notes"].includes(k) && c[k]) && (
+      {MORE.some((k) => c[k]) && (
         <button className="text-xs underline mt-1" style={{ color: C.deep }} onClick={() => setMore(!more)} aria-expanded={more}>{more ? "Fewer details" : "Keywords, the ad and more details"}</button>
       )}
       {(list.length > 0 || admin) && (<>

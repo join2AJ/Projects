@@ -125,7 +125,10 @@ export function MetricsPanel({ projectId, from = null, before = null, empty = "N
   const rows = all.rows && all.rows.filter((r) => (!from || r.period >= from) && (!before || r.period < before));
   const names = useMemo(() => [...new Set((rows || []).map((r) => r.metric))], [rows]);
   const [pick, setPick] = useState(null);
-  const m = pick || names[0];
+  // Start on the main figure: ad impressions or clicks if there, else the biggest
+  const lead = ["Search ad impressions", "Search ad clicks"].find((x) => names.includes(x))
+    || [...names].sort((a, b) => Math.max(...rows.filter((r) => r.metric === b).map((r) => Number(r.value))) - Math.max(...rows.filter((r) => r.metric === a).map((r) => Number(r.value))))[0];
+  const m = pick || lead;
   if (!rows) return <P>Loading…</P>;
   if (!names.length) return <P style={{ color: C.mute }}>{empty}</P>;
   const data = rows.filter((r) => r.metric === m).map((r) => ({ p: r.period.slice(0, 7), v: Number(r.value) }));
