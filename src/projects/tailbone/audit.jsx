@@ -173,7 +173,7 @@ export const ISSUE_STATUS = [
   ["Fixed", "PMax assets no longer serve. The new ad has no cure, rated, proven or No. 1 claims, and three flagged keywords were removed."],
   ["Superseded", "New campaign uses Maximise clicks with a ₹40 cap. Target CPA comes back only after real calls are recorded."],
   ["Fixed", "Search | Tailbone | Delhi NCR | Oct 2026 published: 15 phrase and exact keywords, Search network only, start 19 Oct."],
-  ["Fixed", "New campaign starts clean with 4 sitelinks and ad strength Good. Old clutter sits in paused campaigns."],
+  ["Fixed", "New campaign starts clean with 4 sitelinks and ad strength Good. Older assets stay in the paused campaigns."],
   ["In progress", "Auto-apply recommendations being turned off. Budget prompts stay dismissed until conversions are clean."],
 ];
 
