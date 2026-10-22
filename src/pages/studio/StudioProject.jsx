@@ -288,6 +288,10 @@ export default function StudioProject() {
   const chg = useRows(loadChanges, [bump]);
   const myRole = useMyRole(owner ? null : rows?.[0]?.id);
   const services = useServices(rows?.[0]?.id);
+  // Requests still waiting for Ajay's answer (none from Ajay yet, or the client wrote last)
+  const openReq = useRows(() => (!rows?.[0]?.id ? Promise.resolve({ data: [] }) : supabase.from("requests").select("id,reply,status,request_messages(author_role,created_at)").eq("project_id", rows[0].id).not("status", "in", "(done,declined)")), [rows?.[0]?.id, bump]);
+  const unanswered = (openReq.rows || []).filter((r) => { const m = [...(r.request_messages || [])].sort((a, b) => a.created_at.localeCompare(b.created_at)); return m.length ? m.at(-1).author_role !== "admin" : !r.reply; }).length;
+  const badge = (label, n) => (n ? <span>{label}<span className="ml-1 px-1.5 rounded-full text-xs font-semibold" style={{ background: C.warn, color: "#fff" }} aria-label={`${n} waiting for your reply`}>{n}</span></span> : label);
   const withSvc = (t) => [...FIELDS[t], serviceField(services)];
   if (error) return <Box tone="bad" title="Could not load">{error.message}</Box>;
   if (!rows) return <P>Loading…</P>;
@@ -306,7 +310,7 @@ export default function StudioProject() {
   const TEAM_HIDDEN = ["money", "time", "logins", "seen", "activity", "preview", "shared"];
   const all = [
     ["plan", "Plan", [["overview", "Overview"], ["promotion", "Promotion plan"], ["meetings", "Meetings"], ["decisions", "Decisions"], ["cycles", "Monthly cycles"], ["gantt", "Timeline chart"]]],
-    ["work", "Work", [["byservice", "By service"], ["updates", "Updates"], ["deliverables", "Deliverables & sign-off"], ["issues", "Issues"], ["requests", "Requests"], ["files", "Files"]]],
+    ["work", badge("Work", unanswered), [["byservice", "By service"], ["updates", "Updates"], ["deliverables", "Deliverables & sign-off"], ["issues", "Issues"], ["requests", badge("Requests", unanswered)], ["files", "Files"]]],
     ["results", "Results", [["numbers", "Current results"], ["report", "Previous reports & analysis"]]],
     ["money", "Money", [["money", "Money"], ["time", "Time"]]],
     ["client", "Client", [["preview", "Client’s home (preview)"], ["seen", "What the client views"], ["shared", "Shared vs private"], ["activity", "Activity"], ["logins", "Tools and logins"]]],

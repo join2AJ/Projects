@@ -293,11 +293,10 @@ export function useNeedsYou(p, role) {
     ...(approver ? cyc.rows.map((c) => ({ tab: "monthly", id: c.id, kind: "Approve report", text: monthName(c.month) })) : []),
     // One line for all fees; it goes away once every fee has an answer
     ...(approver && fee.rows.length ? [{ tab: "money", id: "fees", kind: "Your approval", text: "Kindly have a look at the Money section: your approval is awaited" }] : []),
-    ...replies.map((r) => ({ tab: "requests", id: r.id, kind: "Ajay replied", text: r.details })),
     ...(doer ? act.rows.map((a) => ({ tab: "meetings", id: a.id, kind: "Your action", text: a.body, due: a.due_on, action: true })) : []),
   ].sort((a, b) => String(a.due || "9").localeCompare(String(b.due || "9")));
-  const counts = { decisions: approver ? dec.rows?.length || 0 : 0, approvals: approver ? del.rows?.length || 0 : 0, monthly: approver ? cyc.rows?.length || 0 : 0, money: approver && fee.rows?.length ? 1 : 0, requests: replies.length, meetings: doer ? act.rows?.length || 0 : 0 };
-  return { loading, items, counts, reload: () => [dec, req, act, del, cyc, fee].forEach((x) => x.reload()) };
+  const counts = { decisions: approver ? dec.rows?.length || 0 : 0, approvals: approver ? del.rows?.length || 0 : 0, monthly: approver ? cyc.rows?.length || 0 : 0, money: approver && fee.rows?.length ? 1 : 0, requests: 0, meetings: doer ? act.rows?.length || 0 : 0 };
+  return { loading, items, counts, replies, reload: () => [dec, req, act, del, cyc, fee].forEach((x) => x.reload()) };
 }
 
 export function ClientHome({ p, role, needs, go, since, name }) {
@@ -343,6 +342,9 @@ export function ClientHome({ p, role, needs, go, since, name }) {
           {weekly.rows?.[0] ? (
             <Link className="text-left text-sm underline" to={`?tab=updates&item=${weekly.rows[0].id}`}>{weekly.rows[0].title}</Link>
           ) : (latest.rows || []).slice(0, 2).map((u) => <div key={u.id} className="text-sm">{fmtDate(u.happened_on)}: {u.title}</div>)}
+          {(needs.replies || []).slice(0, 2).map((r) => (
+            <div key={r.id} className="text-sm mt-2">Ajay replied to your request: <Link className="underline" to={`?tab=requests&item=${r.id}`}>{r.details.length > 60 ? r.details.slice(0, 60) + "…" : r.details}</Link></div>
+          ))}
           <div className="text-xs mt-2" style={{ color: C.mute }}>Next update: {next ? weeklyLabel(next.at) : "Tuesday 11:00 IST"}</div>
         </Card>
       </div>
