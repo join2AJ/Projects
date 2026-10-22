@@ -12,7 +12,7 @@ import { emailToLogin } from "../lib/auth.jsx";
 import { C, Chip, H2, P, T, Card } from "./ui.jsx";
 
 const PAGE = { "/portal": "My projects", "/services": "Services", "/process": "How we work", "/security": "Security", "/account": "Account", "/privacy": "Privacy notice" };
-const TAB = { index: "Index", overview: "Overview", timeline: "Timeline", meetings: "Meeting notes", promotion: "Promotion plan", decisions: "Decisions", updates: "Updates", issues: "Issues", money: "Money", files: "Files", requests: "Requests", work: "Work done", numbers: "Numbers", report: "Ads audit report", data: "Your data" };
+const TAB = { index: "Index", gantt: "Timeline chart", overview: "Overview", timeline: "Timeline", meetings: "Meeting notes", promotion: "Promotion plan", decisions: "Decisions", updates: "Updates", issues: "Issues", money: "Money", files: "Files", requests: "Requests", work: "Work done", numbers: "Current results", report: "Previous reports & analysis", data: "Your data" };
 export const sectionOf = (v) => (v.tab ? TAB[v.tab] || v.tab : PAGE[v.path] || v.path);
 const ist = (d, o) => new Date(d).toLocaleString("en-GB", { timeZone: "Asia/Kolkata", ...o });
 const dayKey = (d) => new Date(d).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
@@ -55,6 +55,7 @@ function Bars({ data, x, label, horizontal = false, height = 220 }) {
 export function ClientActivity({ projectId }) {
   const views = useRows(() => supabase.from("page_views").select("*").or(`project_id.eq.${projectId},project_id.is.null`).order("at").limit(5000), [projectId]);
   const members = useRows(() => supabase.from("project_members").select("email").eq("project_id", projectId), [projectId]);
+  const profiles = useRows(() => supabase.from("profiles").select("id,full_name,contact_email"), []);
   const acts = useRows(() => supabase.from("audit_log").select("at,actor_id,actor_name,actor_role,summary").or(`project_id.eq.${projectId},project_id.is.null`).eq("actor_role", "client").order("at", { ascending: false }).limit(1000), [projectId]);
   const [who, setWho] = useState("");
   const [tab, setTab] = useState("");
@@ -62,6 +63,9 @@ export function ClientActivity({ projectId }) {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [by, setBy] = useState("date");
+  const [kind, setKind] = useState("real"); // real clients, the demo replica, or both
+  const [part, setPart] = useState("");     // part of the day
+  const [wday, setWday] = useState("");
 
   const data = useMemo(() => {
     if (!views.rows || !members.rows) return null;
@@ -78,14 +82,26 @@ export function ClientActivity({ projectId }) {
     return all;
   }, [views.rows, members.rows]);
 
-  if (!data || !acts.rows) return <P>Loading…</P>;
-  const people = [...new Set(data.map((v) => v.who))];
+  if (!data || !acts.rows || !profiles.rows) return <P>Loading…</P>;
+  // Who is who: the demo account is a replica that shows exactly what the client sees
+  const prof = Object.fromEntries(profiles.rows.map((r) => [r.id, r]));
+  const isDemo = (v) => /^demo\b/i.test(prof[v.user_id]?.full_name || "");
+  const nameOf = (v) => {
+    const pr = prof[v.user_id];
+    if (isDemo(v)) return `Demo replica (${emailToLogin(v.who)})`;
+    return pr ? `${pr.full_name}${pr.contact_email ? ` (${pr.contact_email})` : ""}` : emailToLogin(v.who);
+  };
+  const partOf = (v) => { const h = Number(ist(v.at, { hour: "2-digit", hour12: false })) % 24; return h >= 6 && h < 12 ? "morning" : h < 17 && h >= 12 ? "afternoon" : h >= 17 && h < 21 ? "evening" : "night"; };
+  const scoped = data.filter((v) => (kind === "all" || (kind === "demo") === isDemo(v)));
+  const people = [...new Set(scoped.map((v) => v.who))];
+  const realNames = [...new Set(data.filter((v) => !isDemo(v)).map(nameOf))];
   const sections = [...new Set(data.map(sectionOf))].sort();
   const lo = range === "custom" ? from : range === "all" ? "" : dayKey(Date.now() - (Number(range) - 1) * 864e5);
   const hi = range === "custom" ? to : "";
-  const rows = data.filter((v) => (!who || v.who === who) && (!tab || sectionOf(v) === tab) && (!lo || dayKey(v.at) >= lo) && (!hi || dayKey(v.at) <= hi));
+  const rows = scoped.filter((v) => (!who || v.who === who) && (!tab || sectionOf(v) === tab) && (!lo || dayKey(v.at) >= lo) && (!hi || dayKey(v.at) <= hi)
+    && (!part || partOf(v) === part) && (!wday || ist(v.at, { weekday: "short" }) === wday));
   // This project's people only (general actions like sign-ins have no project)
-  const ids = new Set(data.filter((v) => !who || v.who === who).map((v) => v.user_id));
+  const ids = new Set(scoped.filter((v) => !who || v.who === who).map((v) => v.user_id));
   const did = acts.rows.filter((a) => ids.has(a.actor_id) && (!lo || dayKey(a.at) >= lo) && (!hi || dayKey(a.at) <= hi));
 
   // Chart by date (every day in range), weekday or hour
@@ -109,14 +125,34 @@ export function ClientActivity({ projectId }) {
   const bySection = [...time].sort((a, b) => b[1] - a[1]).map(([k, s]) => ({ k, v: Math.round(s / 60), label: mins(s) }));
   const total = rows.reduce((a, v) => a + v.secs, 0);
   const visits = new Set(rows.map((v) => `${v.who}|${dayKey(v.at)}`)).size;
-  const last = data.at(-1);
+  const last = rows.at(-1);
+  // One line per person: how much they use the portal and what they look at most
+  const perPerson = people.map((w) => {
+    const mine = rows.filter((v) => v.who === w);
+    const t = new Map(); mine.forEach((v) => t.set(sectionOf(v), (t.get(sectionOf(v)) || 0) + v.secs));
+    const top = [...t].sort((a, b) => b[1] - a[1])[0];
+    return { w, name: mine[0] ? nameOf(mine[0]) : nameOf(scoped.find((v) => v.who === w)), views: mine.length, days: new Set(mine.map((v) => dayKey(v.at))).size, secs: mine.reduce((a, v) => a + v.secs, 0), last: mine.at(-1)?.at, top: top ? `${top[0]} (${mins(top[1])})` : "–" };
+  });
 
   return (
     <div>
       <P>Which pages and sections your client opens, when, and for how long, plus what they did. Clients are told about this in the privacy notice.</P>
+      <div className="text-sm mb-3 p-3" style={{ background: C.infoBg, borderRadius: 4 }}>
+        <b>Client:</b> {realNames.length ? realNames.join(", ") : "Dr. Rajveer (rajveer.pt@gmail.com) has not opened the portal since tracking began"}.
+        {" "}The <b>demo replica</b> (demo.rajveer@example.com) sees exactly what the client sees, for your own checks; it is left out unless you choose it below.
+      </div>
       <div className="flex flex-wrap gap-2 items-center mb-3" role="group" aria-label="Filters">
+        <select aria-label="Accounts" value={kind} onChange={(e) => { setKind(e.target.value); setWho(""); }} className={sel} style={fs}>
+          <option value="real">Real clients</option><option value="demo">Demo replica</option><option value="all">Both</option>
+        </select>
         <select aria-label="Person" value={who} onChange={(e) => setWho(e.target.value)} className={sel} style={fs}>
-          <option value="">Everyone</option>{people.map((p) => <option key={p} value={p}>{emailToLogin(p)}</option>)}
+          <option value="">Everyone</option>{people.map((p) => <option key={p} value={p}>{nameOf(scoped.find((v) => v.who === p))}</option>)}
+        </select>
+        <select aria-label="Day of the week" value={wday} onChange={(e) => setWday(e.target.value)} className={sel} style={fs}>
+          <option value="">Any day</option>{WEEK.map((d) => <option key={d}>{d}</option>)}
+        </select>
+        <select aria-label="Time of day" value={part} onChange={(e) => setPart(e.target.value)} className={sel} style={fs}>
+          <option value="">Any time</option><option value="morning">Morning (6–12)</option><option value="afternoon">Afternoon (12–17)</option><option value="evening">Evening (17–21)</option><option value="night">Night (21–6)</option>
         </select>
         <select aria-label="Section" value={tab} onChange={(e) => setTab(e.target.value)} className={sel} style={fs}>
           <option value="">All sections</option>{sections.map((s) => <option key={s}>{s}</option>)}
@@ -153,6 +189,9 @@ export function ClientActivity({ projectId }) {
           </Card>
         </div>
       )}
+      <H2>By person</H2>
+      <T head={["Person", "Views", "Days active", "Time spent", "Most viewed", "Last seen"]} right={[1, 2, 3]}
+        rows={perPerson.map((r) => [<b key="n">{r.name}</b>, r.views, r.days, mins(r.secs), r.top, r.last ? fmtDateTime(r.last, { dateStyle: "medium", timeStyle: "short" }) : "–"])} />
       <H2>What they did</H2>
       {!did.length ? <P style={{ color: C.mute }}>No actions in this period.</P> : (
         <ul className="text-sm mb-4">
@@ -163,7 +202,7 @@ export function ClientActivity({ projectId }) {
       )}
       <H2>Every view</H2>
       <T head={["When (IST)", "Who", "Page / section", "Time there"]} rows={[...rows].reverse().slice(0, 200).map((v) => [
-        <span key="w" className="whitespace-nowrap">{fmtDateTime(v.at, { dateStyle: "medium", timeStyle: "short" })}</span>, emailToLogin(v.who), sectionOf(v), mins(v.secs),
+        <span key="w" className="whitespace-nowrap">{fmtDateTime(v.at, { dateStyle: "medium", timeStyle: "short" })}</span>, nameOf(v), sectionOf(v), mins(v.secs),
       ])} />
       {rows.length > 200 && <P style={{ color: C.mute }}>Showing the latest 200 of {rows.length}.</P>}
     </div>

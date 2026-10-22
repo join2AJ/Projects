@@ -8,6 +8,7 @@ import { useRows } from "../lib/useRows.js";
 import { fmtDate } from "../lib/money.js";
 import { PRIORITY } from "./meetings.jsx";
 import { C, inr, Chip, H2, P, Card } from "./ui.jsx";
+import { TagFilter, tagMatch } from "./shared.jsx";
 
 export const CHANNELS = [
   "Google Ads", "Website and landing page", "Google Business Profile and local SEO", "Instagram and Facebook (own page)",
@@ -108,6 +109,7 @@ function Strategy({ s, admin, onChange }) {
 export function PromotionPlan({ projectId, admin = false, cap = null }) {
   const { rows, reload } = useRows(() => supabase.from("strategies").select("*").eq("project_id", projectId), [projectId]);
   const [adding, setAdding] = useState(null); // channel name or ""
+  const [show, setShow] = useState("");
   if (!rows) return <P>Loading…</P>;
   const channels = [...CHANNELS, ...new Set(rows.map((r) => r.channel).filter((c) => !CHANNELS.includes(c)))].filter((c) => rows.some((r) => r.channel === c));
   const live = rows.filter((r) => ["active", "planned"].includes(r.status) && r.budget_month);
@@ -120,7 +122,7 @@ export function PromotionPlan({ projectId, admin = false, cap = null }) {
         <P style={{ marginBottom: 0 }}>{admin
           ? "Every way we promote the clinic: what we do on each channel, its status, budget and how we measure it. Points stay private until you share them."
           : "How we are promoting your clinic, channel by channel: what is running now, what is planned next, and how we measure it."}</P>
-        {admin && <button onClick={() => setAdding("")} className="px-3 py-1 rounded text-sm font-semibold" style={btn}>Add strategy</button>}
+        {admin && <span className="flex items-center gap-3"><TagFilter value={show} onChange={setShow} /><button onClick={() => setAdding("")} className="px-3 py-1 rounded text-sm font-semibold" style={btn}>Add strategy</button></span>}
       </div>
       <div className="grid gap-3 grid-cols-2 md:grid-cols-4 my-4">
         {[["Channels", channels.length], ["Running now", running], ["Planned ad spend", `${inr(spend)} / month`], ...(admin ? [["Shared with client", `${shared} of ${rows.length}`]] : [])].map(([l, v]) => (
@@ -131,7 +133,8 @@ export function PromotionPlan({ projectId, admin = false, cap = null }) {
       {adding === "" && <StrategyForm projectId={projectId} onDone={() => { setAdding(null); reload(); }} />}
       {!rows.length && <P style={{ color: C.mute }}>{admin ? "No strategies yet." : "Nothing shared yet."}</P>}
       {channels.map((c) => {
-        const list = rows.filter((r) => r.channel === c).sort(byPriority);
+        const list = rows.filter((r) => r.channel === c && tagMatch(show, r)).sort(byPriority);
+        if (!list.length && show) return null;
         return (
           <Card key={c} className="mb-4">
             <div className="flex flex-wrap justify-between items-baseline gap-2">

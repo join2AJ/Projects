@@ -151,6 +151,14 @@ username, password and the `/login` address yourself.
 - **Index and direct links:** every project tab has its own address (`?tab=decisions`, `?tab=meetings`…). The
   **Index** tab says what each tab is for; in the admin view, **Copy client link** gives the client’s link to the same
   tab for WhatsApp.
+- **Tabs in groups:** Index · Plan (Overview, Promotion plan, Meetings, Decisions, Timeline chart) · Work · Results
+  (Current results, Previous reports & analysis) · Money · Client (What the client views, Shared vs private, Client
+  timeline, Client access, Activity, Tools and logins). Hover a group for its tabs; the open group's tabs also show as
+  a second row. Results since the project start are "current"; older figures and audits sit under Previous reports.
+- **Shared vs private:** every item in the project with a Shared / Private tag, counts per section and filters.
+  Meetings and the Promotion plan also have All / Shared / Private filters.
+- **Timeline chart:** action points (agreed → due), running strategies and milestones on a Gantt chart.
+- **Activity:** a table with filters (who, change type, section, client-visible, dates, search) and grouping.
 - **Requests:** a conversation per request. Both sides reply; you set the status. Nothing can be edited or deleted.
 - **Work done:** project → Work done → **Log work** for each audit, report or piece of work (approve it on
   Updates for the client to see). Done work and milestones, the report and report files are listed in one place.

@@ -120,13 +120,14 @@ export function MoneyClient({ projectId }) {
 }
 
 /* ───────── metrics ───────── */
-export function MetricsPanel({ projectId }) {
-  const { rows } = useRows(() => supabase.from("metrics").select("metric,period,value,unit,source").eq("project_id", projectId).eq("client_visible", true).order("period"), [projectId]);
+export function MetricsPanel({ projectId, from = null, before = null, empty = "No numbers recorded yet." }) {
+  const all = useRows(() => supabase.from("metrics").select("metric,period,value,unit,source").eq("project_id", projectId).eq("client_visible", true).order("period"), [projectId]);
+  const rows = all.rows && all.rows.filter((r) => (!from || r.period >= from) && (!before || r.period < before));
   const names = useMemo(() => [...new Set((rows || []).map((r) => r.metric))], [rows]);
   const [pick, setPick] = useState(null);
   const m = pick || names[0];
   if (!rows) return <P>Loading…</P>;
-  if (!names.length) return <P style={{ color: C.mute }}>No numbers recorded yet.</P>;
+  if (!names.length) return <P style={{ color: C.mute }}>{empty}</P>;
   const data = rows.filter((r) => r.metric === m).map((r) => ({ p: r.period.slice(0, 7), v: Number(r.value) }));
   const unit = rows.find((r) => r.metric === m)?.unit || "";
   const vals = data.map((d) => d.v);

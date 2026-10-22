@@ -12,6 +12,8 @@ import { RequestThreads, WorkLog, YourData } from "../../components/collab.jsx";
 import { MeetingNotes } from "../../components/meetings.jsx";
 import { PromotionPlan } from "../../components/promotion.jsx";
 import { TabIndex } from "../../components/tabindex.jsx";
+import { NavTabs, flatTabs } from "../../components/navtabs.jsx";
+import { Gantt } from "../../components/gantt.jsx";
 import { track } from "../../lib/track.js";
 
 export function Portal() {
@@ -69,23 +71,30 @@ export function PortalProject() {
   if (!rows) return <P>Loading…</P>;
   const p = rows[0];
   if (!p) return <Box tone="warn" title="Project not found">This project is not shared with your email. <Link to="/portal" className="underline">Your projects</Link></Box>;
-  const tabs = [
-    ["index", "Index"], ["overview", "Overview"], ["timeline", "Timeline"], ["meetings", "Meeting notes"], ["promotion", "Promotion plan"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"],
-    ["files", "Files"], ["requests", "Requests"], ["work", "Work done"], ["numbers", "Numbers"],
-    ...(p.report_key && REPORTS[p.report_key] ? [["report", REPORTS[p.report_key].label]] : []),
-    ["data", "Your data"],
+  const since = (p.started_on || new Date().toISOString()).slice(0, 8) + "01";
+  const groups = [
+    ["index", "Index", [["index", "Index"]]],
+    ["home", "Overview", [["overview", "Overview"], ["timeline", "Timeline"]]],
+    ["plan", "Plan", [["promotion", "Promotion plan"], ["meetings", "Meeting notes"], ["decisions", "Decisions"], ["gantt", "Timeline chart"]]],
+    ["progress", "Progress", [["updates", "Updates"], ["work", "Work done"], ["issues", "Issues"]]],
+    ["results", "Results", [["numbers", "Current results"], ["report", "Previous reports & analysis"]]],
+    ["requests", "Requests", [["requests", "Requests"]]],
+    ["money", "Money", [["money", "Money"]]],
+    ["files", "Files", [["files", "Files"], ["data", "Your data"]]],
   ];
+  const tabs = flatTabs(groups);
   return (
     <div>
       <div className="text-sm mb-1 flex justify-between" style={{ color: C.mute }}>
         <Link to="/portal" style={{ color: C.deep }}>← Your projects</Link>
       </div>
-      <Tabs label="Project sections" tabs={tabs} value={tab} onChange={setTab} />
+      <NavTabs label="Project sections" groups={groups} value={tab} onChange={setTab} />
       {tab === "overview" && <Overview p={p} go={setTab} />}
       {tab === "decisions" && <DecisionsClient projectId={p.id} />}
       {tab === "index" && <TabIndex tabs={tabs} slug={p.slug} onOpen={setTab} />}
       {tab === "timeline" && <Timeline project={p} />}
       {tab === "meetings" && <MeetingNotes projectId={p.id} />}
+      {tab === "gantt" && <Gantt projectId={p.id} />}
       {tab === "promotion" && <PromotionPlan projectId={p.id} />}
       {tab === "updates" && <UpdatesList projectId={p.id} />}
       {tab === "issues" && <IssuesList projectId={p.id} />}
@@ -97,8 +106,13 @@ export function PortalProject() {
       {tab === "files" && <FilesPanel projectId={p.id} />}
       {tab === "requests" && <RequestThreads projectId={p.id} />}
       {tab === "work" && <WorkLog projectId={p.id} reportKey={p.report_key} onOpenReport={() => setTab("report")} />}
-      {tab === "numbers" && <MetricsPanel projectId={p.id} />}
-      {tab === "report" && <ReportPanel reportKey={p.report_key} />}
+      {tab === "numbers" && <MetricsPanel projectId={p.id} from={since} empty="Figures for the new campaign will appear here after the first weekly review." />}
+      {tab === "report" && (<>
+        <P>Earlier results and our analysis of them. Current results are on the Current results tab.</P>
+        <H2>Figures before {new Date(since).toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</H2>
+        <MetricsPanel projectId={p.id} before={since} empty="No earlier figures." />
+        {p.report_key && REPORTS[p.report_key] && <><H2>{REPORTS[p.report_key].label}</H2><ReportPanel reportKey={p.report_key} /></>}
+      </>)}
       {tab === "data" && <YourData project={p} />}
     </div>
   );

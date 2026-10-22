@@ -18,8 +18,10 @@ const ADMIN = {
   files: "Reports, data and designs; choose which the client can download.",
   requests: "The client’s requests as conversations, with prepared draft replies to edit and share.",
   work: "Every audit, report and piece of work done, with dates.",
-  numbers: "Monthly figures and charts (ad spend, impressions); paste new numbers here.",
-  report: "The Google Ads audit report, including the account history since 2014.",
+  numbers: "Figures since the project started, as charts; paste new numbers here.",
+  report: "Earlier figures and the Google Ads audit report, including the account history since 2014.",
+  gantt: "Action points, strategies, updates and decisions on a timeline.",
+  shared: "Everything in this project tagged Shared or Private, with filters.",
   timeline: "Exactly what the client sees on their timeline.",
   seen: "Which pages the client opens, when and for how long, with charts and filters.",
   activity: "Full audit trail: every change, by whom and when.",
@@ -39,8 +41,9 @@ const CLIENT = {
   files: "Reports and files you can download.",
   requests: "Ask for something and follow the replies.",
   work: "Every audit, report and piece of work done for you.",
-  numbers: "Your figures and charts.",
-  report: "Your Google Ads audit report.",
+  numbers: "Your current figures and charts.",
+  report: "Earlier figures and the Google Ads audit report.",
+  gantt: "The plan and next steps on a timeline.",
   data: "Your personal data and privacy rights; download everything.",
   index: "This page.",
 };
@@ -48,7 +51,7 @@ const CLIENT = {
 export function TabIndex({ tabs, admin = false, slug, onOpen }) {
   const [copied, setCopied] = useState(null);
   const text = admin ? ADMIN : CLIENT;
-  const clientTabs = new Set(["overview", "timeline", "meetings", "promotion", "decisions", "updates", "issues", "money", "files", "requests", "work", "numbers", "report"]);
+  const clientTabs = new Set(["overview", "timeline", "meetings", "promotion", "decisions", "gantt", "updates", "issues", "money", "files", "requests", "work", "numbers", "report", "data"]);
   const copy = async (key) => {
     const url = `${window.location.origin}/portal/p/${slug}?tab=${key}`;
     try { await navigator.clipboard.writeText(url); setCopied(key); } catch { setCopied(null); }

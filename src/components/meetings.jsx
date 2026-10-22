@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase.js";
 import { useRows } from "../lib/useRows.js";
 import { fmtDate } from "../lib/money.js";
 import { C, Chip, P, Card } from "./ui.jsx";
+import { TagFilter, tagMatch } from "./shared.jsx";
 
 export const KINDS = [["discussion", "Discussion points"], ["action", "Action points"], ["workable", "Workable points"]];
 const OWNER = { me: "Ajay", client: "You", both: "Both" };
@@ -142,7 +143,7 @@ function MeetingForm({ projectId, m, onDone }) {
   );
 }
 
-function Meeting({ m, items, admin, onChange, onEdit }) {
+function Meeting({ m, items, admin, onChange, onEdit, show = "" }) {
   const [copied, setCopied] = useState(false);
   const mine = items.filter((i) => i.meeting_id === m.id).sort(byPriority);
   const share = async () => { await supabase.from("meetings").update({ client_visible: !m.client_visible }).eq("id", m.id); onChange(); };
@@ -161,7 +162,7 @@ function Meeting({ m, items, admin, onChange, onEdit }) {
       </div>
       {m.summary && <P style={{ color: C.mute }}>{m.summary}</P>}
       {KINDS.map(([k, label]) => {
-        const list = mine.filter((i) => i.kind === k && (admin || i.status !== "dropped"));
+        const list = mine.filter((i) => i.kind === k && (admin || i.status !== "dropped") && tagMatch(show, i));
         if (!admin && !list.length) return null;
         const all = list.length > 0 && list.every((i) => i.client_visible);
         return (
@@ -193,6 +194,7 @@ export function MeetingNotes({ projectId, admin = false }) {
   const meetings = useRows(() => supabase.from("meetings").select("*").eq("project_id", projectId).order("held_on", { ascending: false }).order("created_at", { ascending: false }), [projectId]);
   const items = useRows(() => supabase.from("meeting_items").select("*").eq("project_id", projectId), [projectId]);
   const [edit, setEdit] = useState(null);
+  const [show, setShow] = useState("");
   const reload = () => { meetings.reload(); items.reload(); };
   if (!meetings.rows || !items.rows) return <P>Loading…</P>;
   return (
@@ -201,12 +203,12 @@ export function MeetingNotes({ projectId, admin = false }) {
         <P style={{ marginBottom: 0 }}>{admin
           ? "After each call or update: what was discussed, who does what by when, and ideas to act on. Notes stay private until you share them."
           : "Notes from our calls and updates: what we discussed, who does what by when, and ideas we can act on."}</P>
-        {admin && <button onClick={() => setEdit({})} className="px-3 py-1 rounded text-sm font-semibold" style={btn}>Add meeting notes</button>}
+        {admin && <span className="flex items-center gap-3"><TagFilter value={show} onChange={setShow} /><button onClick={() => setEdit({})} className="px-3 py-1 rounded text-sm font-semibold" style={btn}>Add meeting notes</button></span>}
       </div>
       {edit && <MeetingForm projectId={projectId} m={edit.id ? edit : null} onDone={() => { setEdit(null); reload(); }} />}
       <div className="mt-3">
         {!meetings.rows.length ? <P style={{ color: C.mute }}>{admin ? "No notes yet." : "No meeting notes shared yet."}</P>
-          : meetings.rows.map((m) => <Meeting key={m.id} m={m} items={items.rows} admin={admin} onChange={reload} onEdit={() => setEdit(m)} />)}
+          : meetings.rows.map((m) => <Meeting key={m.id} m={m} items={items.rows} admin={admin} onChange={reload} onEdit={() => setEdit(m)} show={show} />)}
       </div>
     </div>
   );

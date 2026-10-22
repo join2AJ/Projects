@@ -20,6 +20,9 @@ import { MeetingNotes } from "../../components/meetings.jsx";
 import { ClientActivity } from "../../components/insights.jsx";
 import { PromotionPlan } from "../../components/promotion.jsx";
 import { TabIndex } from "../../components/tabindex.jsx";
+import { NavTabs, flatTabs } from "../../components/navtabs.jsx";
+import { Gantt } from "../../components/gantt.jsx";
+import { SharedOverview } from "../../components/shared.jsx";
 import { WEEKLY, answerBy } from "../../data/studio.js";
 
 const field = "mt-1 w-full px-2 py-1.5 rounded text-sm";
@@ -252,13 +255,17 @@ export default function StudioProject() {
   const seq = Math.max(0, ...(numbers.rows || []).map((r) => r.number.match(new RegExp(`^INV-${year}-(\\d+)$`))?.[1]).filter(Boolean).map(Number));
   const nextNumber = `INV-${year}-${String(seq + 1).padStart(3, "0")}`;
   const nextDay = thisWeek(chg.rows || [], id).day;
-  const tabs = [
-    ["index", "Index"], ["overview", "Overview"], ["meetings", "Meetings"], ["promotion", "Promotion plan"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"], ["time", "Time"],
-    ["files", "Files"], ["requests", "Requests"], ["work", "Work done"], ["numbers", "Numbers"],
-    ...(p.report_key && REPORTS[p.report_key] ? [["report", "Report"]] : []),
-    ["timeline", "Client timeline"], ["seen", "What the client views"], ["activity", "Activity"],
-    ["access", "Client access"], ["logins", "Tools and logins"],
+  // Since when results count as "current" (earlier figures go to Previous reports & analysis)
+  const since = (p.started_on || today()).slice(0, 8) + "01";
+  const groups = [
+    ["index", "Index", [["index", "Index"]]],
+    ["plan", "Plan", [["overview", "Overview"], ["promotion", "Promotion plan"], ["meetings", "Meetings"], ["decisions", "Decisions"], ["gantt", "Timeline chart"]]],
+    ["work", "Work", [["updates", "Updates"], ["work", "Work done"], ["issues", "Issues"], ["requests", "Requests"], ["files", "Files"]]],
+    ["results", "Results", [["numbers", "Current results"], ["report", "Previous reports & analysis"]]],
+    ["money", "Money", [["money", "Money"], ["time", "Time"]]],
+    ["client", "Client", [["seen", "What the client views"], ["shared", "Shared vs private"], ["timeline", "Client timeline"], ["access", "Client access"], ["activity", "Activity"], ["logins", "Tools and logins"]]],
   ];
+  const tabs = flatTabs(groups);
 
   return (
     <div>
@@ -267,7 +274,7 @@ export default function StudioProject() {
         <span>{p.clients?.name}{p.clients?.org ? `, ${p.clients.org}` : ""} · client link: <b style={{ userSelect: "all" }}>{window.location.origin}/portal/p/{p.slug}</b></span>
       </div>
       <H1>{p.name}</H1>
-      <Tabs label="Project sections" tabs={tabs} value={tab} onChange={setTab} />
+      <NavTabs label="Project sections" groups={groups} value={tab} onChange={setTab} />
 
       {tab === "overview" && (<>
         <ProjectForm key={p.id + p.slug} initial={p} onSaved={(d) => (d.slug !== slug ? nav(`/studio/p/${d.slug}`, { replace: true }) : reload())} />
@@ -330,17 +337,24 @@ export default function StudioProject() {
       {tab === "logins" && <CredentialsPanel projectId={id} />}
       {tab === "index" && <TabIndex tabs={tabs} admin slug={p.slug} onOpen={setTab} />}
       {tab === "meetings" && <MeetingNotes projectId={id} admin />}
+      {tab === "gantt" && <Gantt projectId={id} admin />}
+      {tab === "shared" && <SharedOverview project={p} />}
       {tab === "promotion" && <PromotionPlan projectId={id} admin cap={p.ads_cap} />}
       {tab === "seen" && <ClientActivity projectId={id} />}
 
       {tab === "numbers" && (<>
         <MetricsImport projectId={id} onDone={() => setBump(bump + 1)} />
-        <MetricsPanel key={`c${bump}`} projectId={id} />
+        <MetricsPanel key={`c${bump}`} projectId={id} from={since} empty={`No figures since ${fmtDate(since)} yet. Add this month’s numbers above; older figures are under Previous reports & analysis.`} />
         <Editor key={`e${bump}`} title="All values" table="metrics" projectId={id} fields={FIELDS.metrics} order={["period", false]}
           defaults={{ ...defaultsFor("metrics"), period: today().slice(0, 8) + "01" }} />
       </>)}
 
-      {tab === "report" && <ReportPanel reportKey={p.report_key} studio />}
+      {tab === "report" && (<>
+        <P>Earlier results and analysis, kept apart from current results so the focus stays on what is happening now.</P>
+        <H2>Figures before {fmtDate(since)}</H2>
+        <MetricsPanel projectId={id} before={since} empty="No earlier figures." />
+        {p.report_key && REPORTS[p.report_key] && <><H2>{REPORTS[p.report_key].label}</H2><ReportPanel reportKey={p.report_key} studio /></>}
+      </>)}
 
       {tab === "activity" && <AuditTrail projectId={id} />}
       {tab === "timeline" && <Timeline project={p} />}
