@@ -128,6 +128,7 @@ function CampaignForm({ projectId, c, onDone }) {
     e.preventDefault();
     const body = { project_id: projectId, updated_at: new Date().toISOString() };
     for (const k of ["name", "platform", "status", ...DETAILS.map(([k]) => k)]) body[k] = f[k] === "" ? null : f[k] ?? null;
+    body.highlights = f.highlights || null;
     body.client_visible = !!f.client_visible;
     const { error } = c ? await supabase.from("campaigns").update(body).eq("id", c.id) : await supabase.from("campaigns").insert(body);
     if (error) return setMsg(error.message);
@@ -159,6 +160,7 @@ function CampaignForm({ projectId, c, onDone }) {
       {L({ k: "ads", l: "The ad: headlines and descriptions (one per line)", area: true })}
       {L({ k: "assets", l: "Extras on the ad (sitelinks, call button…)", area: true })}
       {L({ k: "notes", l: "Notes the client sees", area: true })}
+      {L({ k: "highlights", l: "How it’s going (shown first, one point per line)", area: true })}
       <label className="flex items-center gap-2 text-sm mb-2 md:col-span-2"><input type="checkbox" checked={!!f.client_visible} onChange={set("client_visible")} /> Client can see this campaign and its results</label>
       <div className="flex gap-2 items-center md:col-span-2">
         <button type="submit" className="px-3 py-1 rounded text-sm font-semibold" style={btn}>Save</button>
@@ -197,6 +199,12 @@ function Campaign({ c, days, admin, onChange }) {
           <button className="underline" style={{ color: c.client_visible ? C.mute : C.good }} onClick={share}>{c.client_visible ? "Unshare" : "Share"}</button>
         </span>}
       </div>
+      {c.highlights && (
+        <div className="p-3 mb-3 rounded text-sm" style={{ background: C.goodBg, border: `1px solid ${C.good}` }} aria-label="How it’s going">
+          <div className="font-semibold mb-1" style={{ color: C.good }}>How it’s going</div>
+          <ul className="pl-5" style={{ listStyle: "disc", lineHeight: 1.6 }}>{c.highlights.split("\n").filter(Boolean).map((x) => <li key={x}>{x}</li>)}</ul>
+        </div>
+      )}
       <dl className="grid gap-x-4 text-sm" style={{ gridTemplateColumns: "minmax(110px, max-content) 1fr" }}>
         {shown.filter(([k]) => c[k]).map(([k, l]) => (
           <div key={k} className="contents">

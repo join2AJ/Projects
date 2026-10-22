@@ -305,6 +305,8 @@ export function ClientHome({ p, role, needs, go, since, name }) {
   const latest = useRows(() => supabase.from("updates").select("id,title,happened_on").eq("project_id", p.id).eq("client_visible", true).neq("kind", "note").lte("happened_on", today()).order("happened_on", { ascending: false }).limit(3), [p.id]);
   const mets = useRows(() => supabase.from("metrics").select("metric,period,value,unit").eq("project_id", p.id).eq("client_visible", true).gte("period", since).order("period"), [p.id, since]);
   const chg = useRows(loadChanges, []);
+  const camp = useRows(() => supabase.from("campaigns").select("highlights").eq("project_id", p.id).eq("client_visible", true).eq("status", "live").not("highlights", "is", null).order("sort").limit(1), [p.id]);
+  const good = (camp.rows?.[0]?.highlights || "").split("\n").filter(Boolean).slice(0, 2);
   const [busy, setBusy] = useState(null);
   const done = async (id) => { setBusy(id); await supabase.rpc("client_item_done", { item: id, done: true }); setBusy(null); needs.reload(); };
   const n = needs.items.length;
@@ -357,6 +359,7 @@ export function ClientHome({ p, role, needs, go, since, name }) {
           <span className="font-semibold" style={{ color: C.deep }}>Search campaign results</span>
           <Link className="text-xs underline" style={{ color: C.deep }} to="?tab=numbers">See all results</Link>
         </div>
+        {good.length > 0 && <ul className="text-sm mb-3 pl-5" style={{ listStyle: "disc", color: C.good, lineHeight: 1.6 }} aria-label="How it’s going">{good.map((x) => <li key={x}>{x}</li>)}</ul>}
         {!results.length ? <div className="text-sm" style={{ color: C.mute }}>Results for the new campaign appear here after the first weekly review.</div> : (
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
             {results.map((r) => (
