@@ -1,4 +1,5 @@
 /* Your dashboard: how the business is doing, and what needs you today. */
+import { useAllHealth, HealthChip } from "../../components/workflow.jsx";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
@@ -108,7 +109,8 @@ function PrivacyCard({ projects }) {
 }
 
 export default function Dashboard() {
-  const projects = useRows(() => supabase.from("projects").select("id,slug,name,stage,ended_on,next_meeting_at,next_meeting_note,clients(name)").order("created_at", { ascending: false }), []);
+  const health = useAllHealth();
+  const projects = useRows(() => supabase.from("projects").select("id,slug,code,name,stage,ended_on,next_meeting_at,next_meeting_note,clients(name)").order("created_at", { ascending: false }), []);
   const inv = useRows(() => supabase.from("invoices").select("*"), []);
   const exp = useRows(() => supabase.from("expenses").select("*"), []);
   const time = useRows(() => supabase.from("time_entries").select("*"), []);
@@ -274,9 +276,10 @@ export default function Dashboard() {
       </div>
 
       <H2>Projects</H2>
-      <T head={["Project", "Client", "Stage", "Billed", "Received", "Owed", "Hours", "Per hour"]} right={[3, 4, 5, 6, 7]}
+      <T head={["Project", "Health", "Client", "Stage", "Billed", "Received", "Owed", "Hours", "Per hour"]} right={[4, 5, 6, 7, 8]}
         rows={k.per.map(({ p, billed, got, due, h, rate }) => [
-          <Link key={p.id} to={`/studio/p/${p.slug}`} className="font-semibold" style={{ color: C.deep }}>{p.name}</Link>,
+          <span key={p.id}><Link to={`/studio/p/${p.slug}`} className="font-semibold" style={{ color: C.deep }}>{p.name}</Link> <span className="text-xs font-mono" style={{ color: C.mute }}>{p.code}</span></span>,
+          health ? <HealthChip key="h" h={health[p.id] || { level: "green", why: [] }} /> : "…",
           p.clients?.name || "", (STAGES.find(([id]) => id === p.stage) || [, p.stage])[1],
           inr(billed), inr(got), due ? <span key="d" style={{ color: C.warn }}>{inr(due)}</span> : "–", h.toFixed(1), rate == null ? "–" : inr(rate),
         ])} />

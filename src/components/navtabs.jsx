@@ -9,7 +9,7 @@ import { C } from "./ui.jsx";
 export const flatTabs = (groups) => groups.flatMap(([, , tabs]) => tabs);
 export const groupOf = (groups, tab) => groups.find(([, , tabs]) => tabs.some(([id]) => id === tab)) || groups[0];
 
-export function NavTabs({ groups, value, onChange, label }) {
+export function NavTabs({ groups, value, onChange, label, extra = null }) {
   const [hover, setHover] = useState(null);
   const active = groupOf(groups, value);
   return (
@@ -40,9 +40,10 @@ export function NavTabs({ groups, value, onChange, label }) {
             </div>
           );
         })}
+        {extra && <div className="ml-auto">{extra}</div>}
       </div>
       {active[2].length > 1 && (
-        <div className="flex flex-wrap gap-2 mt-3" aria-label={`${active[1]} sections`}>
+        <div className="flex flex-wrap gap-2 mt-3" aria-label="Sections in this group">
           {active[2].map(([id, l]) => (
             <button key={id} onClick={() => onChange(id)} aria-pressed={value === id}
               className="px-3 py-1 rounded-full text-xs"

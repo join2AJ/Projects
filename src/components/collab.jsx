@@ -107,7 +107,7 @@ export function ScheduleEditor({ projectId, onChange }) {
 /* ───────── request conversations (client and admin) ───────── */
 const REQ_STATUS = { new: ["New", "warn"], accepted: ["Accepted", "info"], in_progress: ["In progress", "info"], done: ["Done", "good"], declined: ["Declined", "info"] };
 
-function Thread({ req, admin, onChange, draft }) {
+function Thread({ req, admin, onChange, draft, readOnly = false }) {
   const { rows, reload } = useRows(() => supabase.from("request_messages").select("*").eq("request_id", req.id).order("created_at"), [req.id]);
   const [body, setBody] = useState(draft || "");
   const [msg, setMsg] = useState(null);
@@ -126,7 +126,7 @@ function Thread({ req, admin, onChange, draft }) {
   const setStatus = async (status) => { await supabase.from("requests").update({ status }).eq("id", req.id); onChange(); };
   const [label, tone] = REQ_STATUS[req.status] || [req.status, "info"];
   return (
-    <div className="mb-4 p-4" style={{ background: C.card, border: `1px solid ${C.rule}`, borderRadius: 4 }}>
+    <div id={`item-${req.id}`} className="mb-4 p-4" style={{ background: C.card, border: `1px solid ${C.rule}`, borderRadius: 4 }}>
       <div className="flex flex-wrap items-center gap-2 mb-1">
         <Chip tone={tone}>{label}</Chip>
         <span className="text-xs" style={{ color: C.mute }}>{req.type} · {req.priority} · sent {fmtDateTime(req.created_at)}{req.author_email ? ` by ${req.author_email.replace("@u.portal", "")}` : ""}</span>
@@ -158,7 +158,7 @@ function Thread({ req, admin, onChange, draft }) {
           </div>
         </form>
       ) : (
-        <form onSubmit={send} className="flex gap-2">
+        !readOnly && <form onSubmit={send} className="flex gap-2">
           <label htmlFor={`reply-${req.id}`} className="sr-only">Reply</label>
           <input id={`reply-${req.id}`} value={body} onChange={(e) => setBody(e.target.value)} maxLength={5000} placeholder="Write a reply…" className="flex-1 px-2 py-1.5 rounded text-sm" style={{ ...fs, minWidth: 0 }} />
           <button type="submit" className="px-3 py-1 rounded text-sm font-semibold" style={btn()}>Send</button>
@@ -169,7 +169,7 @@ function Thread({ req, admin, onChange, draft }) {
   );
 }
 
-export function RequestThreads({ projectId, admin = false }) {
+export function RequestThreads({ projectId, admin = false, readOnly = false }) {
   const { rows, reload } = useRows(() => supabase.from("requests").select("*").eq("project_id", projectId).order("created_at", { ascending: false }), [projectId]);
   const drafts = useRows(() => (admin ? supabase.from("reply_drafts").select("*") : Promise.resolve({ data: [] })), [admin]);
   const [state, setState] = useState(null);
@@ -182,7 +182,7 @@ export function RequestThreads({ projectId, admin = false }) {
   };
   return (
     <div>
-      {!admin && (<>
+      {!admin && !readOnly && (<>
         <H2>Ask for something</H2>
         <form onSubmit={send} className="max-w-xl mb-4">
           <div className="grid md:grid-cols-2 gap-x-4">
@@ -207,7 +207,7 @@ export function RequestThreads({ projectId, admin = false }) {
       <P style={{ color: C.mute }}>Every request and message is kept with its date and time. Nothing here can be edited or deleted.</P>
       {!rows ? <P>Loading…</P> : !rows.length ? <P style={{ color: C.mute }}>No requests yet.</P> : rows.map((r) => {
         const d = (drafts.rows || []).find((x) => x.request_id === r.id);
-        return <Thread key={r.id + (d ? "d" : "") + (drafts.rows ? "" : "l")} req={r} admin={admin} draft={d?.body} onChange={() => { reload(); drafts.reload(); }} />;
+        return <Thread key={r.id + (d ? "d" : "") + (drafts.rows ? "" : "l")} req={r} admin={admin} draft={d?.body} readOnly={readOnly} onChange={() => { reload(); drafts.reload(); }} />;
       })}
     </div>
   );

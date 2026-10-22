@@ -297,12 +297,13 @@ export const byMeeting = (rows) => {
   return [...groups.entries()].sort((a, b) => b[0].localeCompare(a[0]));
 };
 
-function DecisionCard({ d, n, onSaved }) {
+function DecisionCard({ d, n, onSaved, readOnly = false }) {
   const [other, setOther] = useState(d.answer === "other");
   const [note, setNote] = useState(d.answer_note || "");
   const [msg, setMsg] = useState(null);
   const [hist, setHist] = useState(false);
-  const closed = d.status === "closed";
+  const decided = d.status === "closed";
+  const closed = decided || readOnly;
   const send = async (choice) => {
     setMsg(null);
     const { error } = await supabase.rpc("answer_decision", { decision: d.id, choice, note: choice === "other" ? note : null });
@@ -321,11 +322,11 @@ function DecisionCard({ d, n, onSaved }) {
     );
   };
   return (
-    <div className="p-4 mb-3" style={{ background: C.card, border: `1px solid ${C.rule}`, borderLeft: `4px solid ${closed ? C.good : d.answer ? C.info : C.warn}`, borderRadius: 3 }}>
+    <div id={`item-${d.id}`} className="p-4 mb-3" style={{ background: C.card, border: `1px solid ${C.rule}`, borderLeft: `4px solid ${decided ? C.good : d.answer ? C.info : C.warn}`, borderRadius: 3 }}>
       <div className="flex flex-wrap items-baseline gap-2 mb-1">
         <span className="text-xs" style={{ color: C.mute }}>{n}.</span>
         <span className="font-semibold text-sm flex-1" style={{ minWidth: 0 }}>{d.question}</span>
-        {closed ? <Chip tone="good">Decided</Chip> : d.answer ? <Chip tone="info">Answered</Chip> : <Chip tone="warn">{d.due_on ? `Answer by ${fmtDate(d.due_on)}` : "Needs your answer"}</Chip>}
+        {decided ? <Chip tone="good">Decided</Chip> : d.answer ? <Chip tone="info">Answered</Chip> : readOnly ? <Chip tone="info">Waiting for the approver</Chip> : <Chip tone="warn">{d.due_on ? `Answer by ${fmtDate(d.due_on)}` : "Needs your answer"}</Chip>}
       </div>
       {d.details && <P style={{ color: C.mute, marginBottom: 6 }}>{d.details}</P>}
       {d.recommendation && <P style={{ marginBottom: 8 }}><b style={{ color: C.deep }}>Ajay recommends: </b>{d.recommendation}</P>}
@@ -341,7 +342,7 @@ function DecisionCard({ d, n, onSaved }) {
           <button type="button" onClick={() => send("other")} className="mt-1 px-3 py-1 rounded text-sm font-semibold" style={{ background: C.deep, color: "#fff" }}>Save answer</button>
         </div>
       )}
-      {closed && d.answer === "other" && d.answer_note && <P style={{ marginTop: 8, marginBottom: 0 }}><b>Your note: </b>{d.answer_note}</P>}
+      {closed && d.answer === "other" && d.answer_note && <P style={{ marginTop: 8, marginBottom: 0 }}><b>{readOnly ? "Note: " : "Your note: "}</b>{d.answer_note}</P>}
       {closed && d.outcome && <P style={{ marginTop: 8, marginBottom: 0 }}><b style={{ color: C.good }}>Decision: </b>{d.outcome}</P>}
       {msg && <div className="text-sm mt-2" style={{ color: C.bad }}>{msg}</div>}
       <button type="button" className="text-xs underline mt-2" style={{ color: C.mute }} aria-expanded={hist} onClick={() => setHist(!hist)}>{hist ? "Hide history" : "History"}</button>
@@ -350,21 +351,21 @@ function DecisionCard({ d, n, onSaved }) {
   );
 }
 
-export function DecisionsClient({ projectId }) {
+export function DecisionsClient({ projectId, readOnly = false }) {
   const { rows, reload } = useRows(() => supabase.from("decisions").select("*").eq("project_id", projectId).eq("client_visible", true)
     .order("meeting_on", { ascending: false, nullsFirst: false }).order("sort"), [projectId]);
   if (!rows) return <P>Loading…</P>;
   if (!rows.length) return <P style={{ color: C.mute }}>No decisions to make right now.</P>;
   return (
     <div>
-      <P>Answer each item with Yes, No or Other. You can change an answer until it is marked decided.</P>
+      <P>{readOnly ? "The approver answers these; you can follow the answers here." : "Answer each item with Yes, No or Other. You can change an answer until it is marked decided."}</P>
       {byMeeting(rows).map(([day, list]) => {
         const done = list.filter((d) => d.answer || d.status === "closed").length;
         return (
           <div key={day} className="mb-6">
             <H2>{day ? `Update, ${fmtDate(day)}` : "Other decisions"}</H2>
             <div className="text-xs mb-3" style={{ color: C.mute }}>{done} of {list.length} answered</div>
-            {list.map((d, i) => <DecisionCard key={d.id + (d.answered_at || "") + d.status} d={d} n={i + 1} onSaved={reload} />)}
+            {list.map((d, i) => <DecisionCard key={d.id + (d.answered_at || "") + d.status} d={d} n={i + 1} onSaved={reload} readOnly={readOnly} />)}
           </div>
         );
       })}

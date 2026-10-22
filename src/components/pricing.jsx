@@ -60,7 +60,7 @@ export function FeesEditor({ projectId }) {
     ev.preventDefault();
     const body = {
       project_id: projectId, service_key: edit.service_key, name: edit.name, kind: edit.kind,
-      price: Number(edit.price), status: edit.status, start_on: edit.start_on || null, note: edit.note || null, client_visible: !!edit.client_visible,
+      price: Number(edit.price), status: edit.status, progress: edit.kind === "one-time" && edit.progress !== "" && edit.progress != null ? Math.max(0, Math.min(100, Number(edit.progress))) : null, start_on: edit.start_on || null, note: edit.note || null, client_visible: !!edit.client_visible,
     };
     // A new fee asks the client again
     if (edit.id && Number(edit.price) !== Number(fees.rows.find((r) => r.id === edit.id)?.price)) Object.assign(body, { client_response: null, client_offer: null, client_note: null, client_response_at: null });
@@ -126,6 +126,7 @@ export function FeesEditor({ projectId }) {
                   {["Proposed", "Agreed", "In progress", "Live", "Done", "Paused", "Stopped", "Declined"].map((o) => <option key={o}>{o}</option>)}
                 </select>
               </F>
+              {edit.kind === "one-time" && <F label="% complete (client sees a progress bar)"><input id="fee-progress" type="number" min="0" max="100" value={edit.progress ?? ""} onChange={(e) => setEdit({ ...edit, progress: e.target.value })} className={input} style={fs} /></F>}
               <F label="Starts"><input id="fee-start" type="date" value={edit.start_on || ""} onChange={(e) => setEdit({ ...edit, start_on: e.target.value })} className={input} style={fs} /></F>
               <F label="Note for the client" wide><input id="fee-note" value={edit.note || ""} onChange={(e) => setEdit({ ...edit, note: e.target.value })} className={input} style={fs} /></F>
               <label className="flex items-center gap-2 text-sm mb-3"><input type="checkbox" checked={!!edit.client_visible} onChange={(e) => setEdit({ ...edit, client_visible: e.target.checked })} /> Client can see this</label>

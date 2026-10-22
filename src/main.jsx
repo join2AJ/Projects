@@ -41,7 +41,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="studio/new" element={<Require owner><NewProject /></Require>} />
             <Route path="studio/compare" element={<Require owner><Compare /></Require>} />
             <Route path="studio/overheads" element={<Require owner><Overheads /></Require>} />
-            <Route path="studio/p/:slug" element={<Require owner><StudioProject /></Require>} />
+            <Route path="studio/p/:slug" element={<Require><StudioProject /></Require>} />
             <Route path="*" element={<Entry />} />
           </Route>
         </Routes>

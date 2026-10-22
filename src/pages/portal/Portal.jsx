@@ -4,23 +4,23 @@ import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase.js";
 import { useAuth } from "../../lib/auth.jsx";
 import { useRows } from "../../lib/useRows.js";
-import { C, H1, H2, P, Box, T, Tabs, Card } from "../../components/ui.jsx";
-import { StageBar, UpdatesList, IssuesList, DueBanner, MoneyClient, MetricsPanel, FilesPanel, ReportPanel, DecisionsClient, DecisionsBanner, TimetableBox } from "../../components/parts.jsx";
+import { C, H1, H2, P, Box, Card } from "../../components/ui.jsx";
+import { UpdatesList, IssuesList, MoneyClient, MetricsPanel, FilesPanel, ReportPanel, DecisionsClient } from "../../components/parts.jsx";
 import { REPORTS } from "../../projects/reports.js";
-import { Timeline } from "../../components/activity.jsx";
-import { RequestThreads, WorkLog, YourData } from "../../components/collab.jsx";
+import { RequestThreads, WorkLog } from "../../components/collab.jsx";
 import { MeetingNotes } from "../../components/meetings.jsx";
 import { PromotionPlan } from "../../components/promotion.jsx";
 import { TabIndex } from "../../components/tabindex.jsx";
 import { NavTabs, flatTabs } from "../../components/navtabs.jsx";
-import { Gantt } from "../../components/gantt.jsx";
+import { useNeedsYou, ClientHome, Deliverables, Cycles, useFocusItem } from "../../components/workflow.jsx";
 import { track } from "../../lib/track.js";
 
 export function Portal() {
   const { session, profile } = useAuth();
-  const { rows, error } = useRows(() => supabase.from("projects").select("slug,name,stage,summary,next_meeting_at").order("created_at", { ascending: false }), []);
+  const { rows, error } = useRows(() => supabase.from("projects").select("slug,name,code,stage,summary,next_meeting_at,project_members(role,email)").order("created_at", { ascending: false }), []);
+  const mine = (p) => (p.project_members || []).find((m) => m.email === (session?.user.email || "").toLowerCase())?.role;
   if (profile?.is_owner) return <Navigate to="/studio" replace />;
-  if (rows?.length === 1) return <Navigate to={`/portal/p/${rows[0].slug}`} replace />;
+  if (rows?.length === 1) return <Navigate to={mine(rows[0]) === "team" ? `/studio/p/${rows[0].slug}` : `/portal/p/${rows[0].slug}`} replace />;
   return (
     <div>
       <H1>Your projects</H1>
@@ -29,7 +29,8 @@ export function Portal() {
       <div className="grid gap-3">
         {(rows || []).map((p) => (
           <Card key={p.slug}>
-            <Link to={`/portal/p/${p.slug}`} className="font-semibold" style={{ color: C.deep }}>{p.name}</Link>
+            <Link to={mine(p) === "team" ? `/studio/p/${p.slug}` : `/portal/p/${p.slug}`} className="font-semibold" style={{ color: C.deep }}>{p.name}</Link>
+            <span className="text-xs ml-2" style={{ color: C.mute }}>{p.code}</span>
             <div className="text-sm" style={{ color: C.mute }}>{p.summary}</div>
           </Card>
         ))}
@@ -38,82 +39,134 @@ export function Portal() {
   );
 }
 
-function Overview({ p, go }) {
-  const svc = useRows(() => supabase.from("project_services").select("*").eq("project_id", p.id).eq("client_visible", true).order("created_at"), [p.id]);
-  return (
-    <div>
-      <H1>{p.name}</H1>
-      <P>{p.summary} {p.brief}</P>
-      {p.money_open && <DueBanner projectId={p.id} />}
-      <DecisionsBanner projectId={p.id} onOpen={() => go("decisions")} />
-      <TimetableBox projectId={p.id} extra={{ at: p.next_meeting_at, note: p.next_meeting_note }} />
-      <H2>Where we are</H2>
-      <StageBar stage={p.stage} />
-      <H2>Services</H2>
-      <T head={["Service", "Status", "Detail"]} rows={(svc.rows || []).map((s) => [<b key={s.id}>{s.name}</b>, s.status, s.note || ""])} />
-      <div className="grid gap-6 md:grid-cols-2">
-        <div><H2>Latest updates</H2><UpdatesList projectId={p.id} limit={5} mode="latest" /></div>
-        <div><H2>Coming up</H2><UpdatesList projectId={p.id} limit={4} mode="upcoming" /></div>
-      </div>
-    </div>
-  );
+/* The signed-in person's role on a project: approver, contributor, viewer or team. */
+export function useMyRole(projectId) {
+  const { session } = useAuth();
+  const email = (session?.user.email || "").toLowerCase();
+  // [projectId, role]: the role only counts once it belongs to the project asked about
+  const [got, setGot] = useState([null, null]);
+  useEffect(() => {
+    if (!projectId) return;
+    let on = true;
+    supabase.from("project_members").select("role").eq("project_id", projectId).eq("email", email)
+      .then(({ data }) => on && setGot([projectId, data?.[0]?.role || "viewer"]));
+    return () => { on = false; };
+  }, [projectId, email]);
+  return projectId && got[0] === projectId ? got[1] : null;
 }
+
+/* Which optional sections have anything the client can see (empty ones are hidden). */
+function useVisible(p, since) {
+  const pid = p?.id ?? "";
+  const n = (t, extra = (q) => q) => useRows(() => !pid ? Promise.resolve({ data: [{ c: 0 }] }) : extra(supabase.from(t).select("id", { count: "exact", head: true }).eq("project_id", pid)).then((r) => ({ data: [{ c: r.count || 0 }], error: r.error })), [pid, since]);
+  const res = {
+    meetings: n("meetings", (q) => q.eq("client_visible", true)),
+    promotion: n("strategies", (q) => q.eq("client_visible", true)),
+    decisions: n("decisions", (q) => q.eq("client_visible", true)),
+    issues: n("issues", (q) => q.eq("client_visible", true).in("status", ["open", "in_progress", "waiting_client", "blocked"])),
+    approvals: n("deliverables", (q) => q.eq("client_visible", true)),
+    monthly: n("cycles", (q) => q.eq("client_visible", true)),
+    report: n("metrics", (q) => q.eq("client_visible", true).lt("period", since)),
+  };
+  if (Object.values(res).some((r) => !r.rows)) return null;
+  return Object.fromEntries(Object.entries(res).map(([k, r]) => [k, r.rows[0].c]));
+}
+
+const Badge = ({ n }) => (n ? <span className="ml-1 px-1.5 rounded-full text-xs font-semibold" style={{ background: C.warn, color: "#fff" }} aria-label={`${n} need you`}>{n}</span> : null);
+const withBadge = (label, n) => (n ? <span>{label}<Badge n={n} /></span> : label);
 
 export function PortalProject() {
   const { slug } = useParams();
+  const { profile } = useAuth();
   const { rows, error } = useRows(() => supabase.from("projects").select("*").eq("slug", slug), [slug]);
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") || "overview";
-  const setTab = (t) => setParams(t === "overview" ? {} : { tab: t });
+  const tab = params.get("tab") || "home";
+  const setTab = (t, item) => setParams(t === "home" && !item ? {} : item ? { tab: t, item } : { tab: t });
   const p0 = rows?.[0];
+  const role = useMyRole(p0?.id);
+  const since = ((p0?.started_on) || new Date().toISOString()).slice(0, 8) + "01";
+  const visible = useVisible(p0 || { id: null }, since);
   useEffect(() => { if (p0) track(`/portal/p/${p0.slug}`, p0.id, tab); }, [p0?.id, tab]);
   if (error) return <Box tone="bad" title="Could not load">{error.message}</Box>;
   if (!rows) return <P>Loading…</P>;
   const p = rows[0];
-  if (!p) return <Box tone="warn" title="Project not found">This project is not shared with your email. <Link to="/portal" className="underline">Your projects</Link></Box>;
-  const since = (p.started_on || new Date().toISOString()).slice(0, 8) + "01";
+  if (!p) return <Box tone="warn" title="Project not found">This project is not shared with your login. <Link to="/portal" className="underline">Your projects</Link></Box>;
+  if (!role) return <P>Loading…</P>;
+  if (role === "team") return <Navigate to={`/studio/p/${p.slug}`} replace />;
+  return <ClientProject p={p} role={role} visible={visible} since={since} tab={tab} setTab={setTab} name={profile?.full_name} />;
+}
+
+function ClientProject({ p, role, visible, since, tab, setTab, name }) {
+  const needs = useNeedsYou(p, role);
+  useFocusItem();
+  if (!visible) return <P>Loading…</P>;
+  const c = needs.counts;
+  const show = (k) => visible[k] > 0;
+  const plan = [
+    show("promotion") && ["promotion", "Promotion plan"],
+    show("meetings") && ["meetings", withBadge("Meeting notes", c.meetings)],
+    show("decisions") && ["decisions", withBadge("Decisions", c.decisions)],
+    show("approvals") && ["approvals", withBadge("Approvals", c.approvals)],
+    show("monthly") && ["monthly", withBadge("Monthly reports", c.monthly)],
+  ].filter(Boolean);
   const groups = [
-    ["index", "Index", [["index", "Index"]]],
-    ["home", "Overview", [["overview", "Overview"], ["timeline", "Timeline"]]],
-    ["plan", "Plan", [["promotion", "Promotion plan"], ["meetings", "Meeting notes"], ["decisions", "Decisions"], ["gantt", "Timeline chart"]]],
-    ["progress", "Progress", [["updates", "Updates"], ["work", "Work done"], ["issues", "Issues"]]],
-    ["results", "Results", [["numbers", "Current results"], ["report", "Previous reports & analysis"]]],
-    ["requests", "Requests", [["requests", "Requests"]]],
+    ["home", withBadge("Home", needs.items.length), [["home", "Home"]]],
+    ...(plan.length ? [["plan", withBadge("Plan", c.meetings + c.decisions + c.approvals + c.monthly), plan]] : []),
+    ["progress", "Progress", [["updates", "Updates"], ...(show("issues") ? [["issues", "Issues"]] : [])]],
+    ["results", "Results", [["numbers", "Current results"], ...(show("report") || p.report_key ? [["report", "Previous reports & analysis"]] : [])]],
+    ["requests", withBadge("Requests & files", c.requests), [["requests", withBadge("Requests", c.requests)], ["files", "Files"]]],
     ["money", "Money", [["money", "Money"]]],
-    ["files", "Files", [["files", "Files"], ["data", "Your data"]]],
   ];
   const tabs = flatTabs(groups);
+  const known = tabs.some(([id]) => id === tab) || tab === "index";
+  const t = known ? tab : "home";
+  const go = (k, item) => setTab(k, item);
   return (
     <div>
-      <div className="text-sm mb-1 flex justify-between" style={{ color: C.mute }}>
-        <Link to="/portal" style={{ color: C.deep }}>← Your projects</Link>
-      </div>
-      <NavTabs label="Project sections" groups={groups} value={tab} onChange={setTab} />
-      {tab === "overview" && <Overview p={p} go={setTab} />}
-      {tab === "decisions" && <DecisionsClient projectId={p.id} />}
-      {tab === "index" && <TabIndex tabs={tabs} slug={p.slug} onOpen={setTab} />}
-      {tab === "timeline" && <Timeline project={p} />}
-      {tab === "meetings" && <MeetingNotes projectId={p.id} />}
-      {tab === "gantt" && <Gantt projectId={p.id} />}
-      {tab === "promotion" && <PromotionPlan projectId={p.id} />}
-      {tab === "updates" && <UpdatesList projectId={p.id} />}
-      {tab === "issues" && <IssuesList projectId={p.id} />}
-      {tab === "money" && (p.money_open ? <MoneyClient projectId={p.id} /> : (
+      <NavTabs label="Project sections" groups={groups} value={t} onChange={(k) => setTab(k)}
+        extra={<button onClick={() => setTab("index")} className="px-3 py-3 text-sm" style={{ color: C.mute }} aria-label="Help: what each section is for">? Help</button>} />
+      {t === "home" && <ClientHome p={p} role={role} needs={needs} go={go} since={since} name={name} />}
+      {t === "index" && <TabIndex tabs={tabs.map(([k, l]) => [k, typeof l === "string" ? l : k])} slug={p.slug} />}
+      {t === "promotion" && <PromotionPlan projectId={p.id} />}
+      {t === "meetings" && <MeetingNotes projectId={p.id} canMark={["approver", "contributor"].includes(role)} onMarked={needs.reload} />}
+      {t === "decisions" && <DecisionsClient projectId={p.id} readOnly={role !== "approver"} />}
+      {t === "approvals" && <Deliverables projectId={p.id} role={role} />}
+      {t === "monthly" && <Cycles projectId={p.id} role={role} />}
+      {t === "updates" && <ClientUpdates p={p} go={go} />}
+      {t === "issues" && <IssuesList projectId={p.id} />}
+      {t === "money" && (p.money_open ? <MoneyClient projectId={p.id} /> : (
         <Box tone="info" title="Coming soon">
           Your fees and payments will appear here once we have agreed the scope together. Nothing is charged until then.
         </Box>
       ))}
-      {tab === "files" && <FilesPanel projectId={p.id} />}
-      {tab === "requests" && <RequestThreads projectId={p.id} />}
-      {tab === "work" && <WorkLog projectId={p.id} reportKey={p.report_key} onOpenReport={() => setTab("report")} />}
-      {tab === "numbers" && <MetricsPanel projectId={p.id} from={since} empty="Figures for the new campaign will appear here after the first weekly review." />}
-      {tab === "report" && (<>
+      {t === "files" && <FilesPanel projectId={p.id} />}
+      {t === "requests" && (role === "viewer" ? <ReadOnlyNote what="send requests" /> : null)}
+      {t === "requests" && <RequestThreads projectId={p.id} readOnly={role === "viewer"} />}
+      {t === "numbers" && <MetricsPanel projectId={p.id} from={since} empty="Figures for the new campaign will appear here after the first weekly review." />}
+      {t === "report" && (<>
         <P>Earlier results and our analysis of them. Current results are on the Current results tab.</P>
         <H2>Figures before {new Date(since).toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</H2>
         <MetricsPanel projectId={p.id} before={since} empty="No earlier figures." />
         {p.report_key && REPORTS[p.report_key] && <><H2>{REPORTS[p.report_key].label}</H2><ReportPanel reportKey={p.report_key} /></>}
       </>)}
-      {tab === "data" && <YourData project={p} />}
+    </div>
+  );
+}
+
+const ReadOnlyNote = ({ what }) => <Box tone="info">You can read everything here. To {what}, ask Ajay to give your login a contributor role.</Box>;
+
+/* Updates, with the work-done register as a second view of the same page. */
+function ClientUpdates({ p, go }) {
+  const [view, setView] = useState("all");
+  return (
+    <div>
+      <div className="flex gap-2 mb-3 text-sm" role="group" aria-label="Show">
+        {[["all", "All updates"], ["work", "Work done"]].map(([k, l]) => (
+          <button key={k} onClick={() => setView(k)} aria-pressed={view === k} className="px-3 py-1 rounded-full text-xs"
+            style={{ border: `1px solid ${view === k ? C.deep : C.rule}`, background: view === k ? C.deep : C.card, color: view === k ? "#fff" : C.ink }}>{l}</button>
+        ))}
+      </div>
+      {view === "all" ? <UpdatesList projectId={p.id} /> : <WorkLog projectId={p.id} reportKey={p.report_key} onOpenReport={() => go("report")} />}
     </div>
   );
 }

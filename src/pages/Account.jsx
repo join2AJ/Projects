@@ -4,6 +4,15 @@ import { supabase } from "../lib/supabase.js";
 import { useAuth, emailToLogin, signOut } from "../lib/auth.jsx";
 import { C, H1, H2, P, Box, Card } from "../components/ui.jsx";
 import { MySignIns } from "../components/activity.jsx";
+import { YourData } from "../components/collab.jsx";
+import { useRows } from "../lib/useRows.js";
+
+/* Clients: their data and rights for each project (moved here from the project page). */
+function MyData() {
+  const pr = useRows(() => supabase.from("projects").select("*").order("created_at"), []);
+  if (!pr.rows?.length) return null;
+  return pr.rows.map((p) => <div key={p.id}><H2>Your data{pr.rows.length > 1 ? `: ${p.name}` : ""}</H2><YourData project={p} /></div>);
+}
 
 const fs = { border: `1px solid ${C.rule}`, background: "#fff" };
 
@@ -43,6 +52,7 @@ export default function Account() {
       {msg && <Box tone={msg[0]}>{msg[1]}</Box>}
       <H2>Your recent sign-ins</H2>
       <MySignIns userId={session?.user.id} />
+      {profile && !profile.is_owner && <MyData />}
       <P><button className="underline" style={{ color: C.mute }} onClick={signOut}>Sign out</button></P>
     </div>
   );

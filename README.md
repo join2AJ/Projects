@@ -34,6 +34,11 @@ Enforced by the database (row level security), not by the website:
 - A client sees a project only if it is ticked for them on People, and within it only items marked for the
   client. **Updates start unapproved**: they reach the client only after you press Approve.
   Draft invoices, time logs and private notes are never sent to clients.
+- Each project has a permanent code (e.g. `TBT-2610`), and each person has a role on each project, set on People:
+  **approver** (answers decisions, approves fees, signs off deliverables and monthly reports), **contributor**
+  (sends requests and files, marks their own action points done), **viewer** (reads only) and **team** (sees and
+  drafts project work, never money, time or passwords, and cannot share with the client). The database enforces these.
+- The client's Home lists what needs them ("2 things need you"); each item opens the place to act on it.
 - A disabled account cannot sign in, and loses access at once even if it was already signed in.
 - Accounts are created and changed only through the `admin-users` Edge Function, which checks that the
   caller is the admin. A username `rajveer` is stored in auth as `rajveer@u.portal`; nothing is ever emailed.
@@ -83,7 +88,7 @@ notes are compiled out of the live site and appear only in `npm run dev`. Use pr
 ### 1. Database (Supabase)
 
 1. Create a Supabase project (free plan allows 2 active projects; pause one if both are used).
-2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`, `0005_weekly_updates.sql`, `0006_price_list_and_discounts.sql`, `0007_audit_trail.sql`, `0008_schedule_threads_fees_privacy.sql`, `0009_credentials_vault.sql`, `0010_schedule_changes_private.sql`, `0011_respond_fee_done_work.sql`, `0012_money_coming_soon.sql`, `0013_meetings_drafts_page_views.sql`, `0014_meeting_items_share.sql`, `0015_meeting_items_priority.sql`, `0016_promotion_plan.sql`
+2. SQL Editor → run `supabase/migrations/0001_portal.sql`, `supabase/seed/tailbone.sql`, `0002_private_helpers.sql`, `0003_users_and_approvals.sql`, `0004_decisions.sql`, `0005_weekly_updates.sql`, `0006_price_list_and_discounts.sql`, `0007_audit_trail.sql`, `0008_schedule_threads_fees_privacy.sql`, `0009_credentials_vault.sql`, `0010_schedule_changes_private.sql`, `0011_respond_fee_done_work.sql`, `0012_money_coming_soon.sql`, `0013_meetings_drafts_page_views.sql`, `0014_meeting_items_share.sql`, `0015_meeting_items_priority.sql`, `0016_promotion_plan.sql`, `0017_codes_roles_signoff_cycles.sql`
    (and `supabase/seed/price_list.sql`)
    (and `supabase/seed/tailbone_decisions.sql` for the 19 Oct meeting).
    Deploy `supabase/functions/admin-users` (Edge Functions).

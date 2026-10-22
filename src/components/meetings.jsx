@@ -74,7 +74,7 @@ function ItemForm({ item, meetingId, kind, onDone }) {
   );
 }
 
-function Items({ list, admin, onChange }) {
+function Items({ list, admin, onChange, canMark = false }) {
   const [edit, setEdit] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const set = async (i, patch) => { await supabase.from("meeting_items").update(patch).eq("id", i.id); onChange(); };
@@ -84,13 +84,19 @@ function Items({ list, admin, onChange }) {
       {list.map((i) => edit === i.id ? (
         <li key={i.id}><ItemForm item={i} onDone={() => { setEdit(null); onChange(); }} /></li>
       ) : (
-        <li key={i.id} className="py-1" style={{ opacity: i.status === "dropped" ? 0.5 : 1 }}>
+        <li key={i.id} id={`item-${i.id}`} className="py-1" style={{ opacity: i.status === "dropped" ? 0.5 : 1 }}>
           <span style={{ textDecoration: i.status === "done" && i.kind === "action" ? "line-through" : "none" }}>{i.body}</span>
           <span className="ml-2 text-xs" style={{ color: C.mute }}>
             {i.priority && i.status !== "done" && i.status !== "dropped" && <><Chip tone={PRIORITY[i.priority][1]}>{PRIORITY[i.priority][0]}</Chip>{" "}</>}
             {i.owner && <b>{(admin ? OWNER_ADMIN : OWNER)[i.owner]}</b>}{i.due_on && ` · by ${fmtDate(i.due_on)}`}{" "}
             {i.kind !== "discussion" && <Chip tone={statusLabel(i)[1]}>{statusLabel(i)[0]}</Chip>}
           </span>
+          {!admin && canMark && i.kind === "action" && ["client", "both"].includes(i.owner) && ["open", "done"].includes(i.status) && (
+            <button className="ml-2 text-xs underline" style={{ color: i.status === "done" ? C.mute : C.good }}
+              onClick={async () => { await supabase.rpc("client_item_done", { item: i.id, done: i.status !== "done" }); onChange(); }}>
+              {i.status === "done" ? "Mark open again" : "Mark done"}
+            </button>
+          )}
           {admin && (
             <div className="flex flex-wrap gap-x-3 gap-y-1 items-center text-xs mt-0.5">
               <button onClick={() => set(i, { client_visible: !i.client_visible })} aria-pressed={i.client_visible}
@@ -143,7 +149,7 @@ function MeetingForm({ projectId, m, onDone }) {
   );
 }
 
-function Meeting({ m, items, admin, onChange, onEdit, show = "" }) {
+function Meeting({ m, items, admin, onChange, onEdit, show = "", canMark = false }) {
   const [copied, setCopied] = useState(false);
   const mine = items.filter((i) => i.meeting_id === m.id).sort(byPriority);
   const share = async () => { await supabase.from("meetings").update({ client_visible: !m.client_visible }).eq("id", m.id); onChange(); };
@@ -171,7 +177,7 @@ function Meeting({ m, items, admin, onChange, onEdit, show = "" }) {
               <span className="text-sm font-semibold" style={{ color: C.ink }}>{label}</span>
               {admin && list.length > 0 && <button className="text-xs underline" style={{ color: C.deep }} onClick={() => shareAll(k, !all)}>{all ? "Unshare all" : "Share all"}</button>}
             </div>
-            {list.length ? <Items list={list} admin={admin} onChange={onChange} /> : <div className="text-xs" style={{ color: C.mute }}>None yet.</div>}
+            {list.length ? <Items list={list} admin={admin} onChange={onChange} canMark={canMark} /> : <div className="text-xs" style={{ color: C.mute }}>None yet.</div>}
             {admin && <AddItem meetingId={m.id} kind={k} onAdded={onChange} />}
           </div>
         );
@@ -190,7 +196,7 @@ function Meeting({ m, items, admin, onChange, onEdit, show = "" }) {
   );
 }
 
-export function MeetingNotes({ projectId, admin = false }) {
+export function MeetingNotes({ projectId, admin = false, canMark = false, onMarked }) {
   const meetings = useRows(() => supabase.from("meetings").select("*").eq("project_id", projectId).order("held_on", { ascending: false }).order("created_at", { ascending: false }), [projectId]);
   const items = useRows(() => supabase.from("meeting_items").select("*").eq("project_id", projectId), [projectId]);
   const [edit, setEdit] = useState(null);
@@ -208,7 +214,7 @@ export function MeetingNotes({ projectId, admin = false }) {
       {edit && <MeetingForm projectId={projectId} m={edit.id ? edit : null} onDone={() => { setEdit(null); reload(); }} />}
       <div className="mt-3">
         {!meetings.rows.length ? <P style={{ color: C.mute }}>{admin ? "No notes yet." : "No meeting notes shared yet."}</P>
-          : meetings.rows.map((m) => <Meeting key={m.id} m={m} items={items.rows} admin={admin} onChange={reload} onEdit={() => setEdit(m)} show={show} />)}
+          : meetings.rows.map((m) => <Meeting key={m.id} m={m} items={items.rows} admin={admin} onChange={() => { reload(); onMarked?.(); }} onEdit={() => setEdit(m)} show={show} canMark={canMark} />)}
       </div>
     </div>
   );

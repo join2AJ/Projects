@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase.js";
 import { useRows } from "../../lib/useRows.js";
-import { useAuth } from "../../lib/auth.jsx";
+import { useAuth, loginToEmail } from "../../lib/auth.jsx";
 import { FIELDS } from "../../lib/schema.js";
 import { fmtDateTime } from "../../lib/money.js";
 import Editor from "../../components/Editor.jsx";
@@ -57,6 +57,8 @@ function Invite({ invite }) {
   );
 }
 
+// Roles on a project. Only the approver answers decisions, signs off work and approves fees.
+const ROLES = [["approver", "Client – approver (decides)"], ["contributor", "Client – contributor (requests, files)"], ["viewer", "Client – viewer (read only)"], ["team", "Team (sees drafts, no money)"]];
 const blank = { full_name: "", login: "", password: "", is_owner: false, status: "active", phone: "", contact_email: "", client_id: "", notes: "", project_ids: [] };
 
 function UserForm({ user, clients, projects, onDone, onCancel }) {
@@ -65,6 +67,12 @@ function UserForm({ user, clients, projects, onDone, onCancel }) {
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setU({ ...u, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
+  // Each project they can see has its own role
+  const [roles, setRoles] = useState({});
+  useEffect(() => {
+    if (!user.email) return;
+    supabase.from("project_members").select("project_id,role").eq("email", user.email).then(({ data }) => setRoles(Object.fromEntries((data || []).map((m) => [m.project_id, m.role]))));
+  }, [user.email]);
   const toggleProject = (id) => setU({ ...u, project_ids: u.project_ids.includes(id) ? u.project_ids.filter((x) => x !== id) : [...u.project_ids, id] });
   // When a clinic is picked, offer its projects first
   const sorted = [...projects].sort((a, b) => (b.client_id === u.client_id) - (a.client_id === u.client_id) || a.name.localeCompare(b.name));
@@ -80,7 +88,14 @@ function UserForm({ user, clients, projects, onDone, onCancel }) {
     };
     const login = isNew ? u.login.trim().toLowerCase() : user.login;
     const invite = !u.is_owner && (isNew || u.password) ? { name: u.full_name, login, password: u.password, phone: u.phone } : null;
-    try { await adminCall(body); onDone(isNew ? `Created. They sign in as “${login}” with the password you set.` : "Saved", invite); }
+    try {
+      await adminCall(body);
+      const email = (user.email || loginToEmail(login) || "").toLowerCase();
+      for (const pid of u.is_owner ? [] : u.project_ids) {
+        const { error } = await supabase.from("project_members").update({ role: roles[pid] || "approver" }).eq("project_id", pid).eq("email", email);
+        if (error) throw error;
+      }
+      onDone(isNew ? `Created. They sign in as “${login}” with the password you set.` : "Saved", invite); }
     catch (err) { setMsg(err.message); }
     setBusy(false);
   };
@@ -121,9 +136,14 @@ function UserForm({ user, clients, projects, onDone, onCancel }) {
           <legend className="text-xs mb-1" style={{ color: C.mute }}>Projects they can see</legend>
           <div className="flex flex-wrap gap-3">
             {sorted.map((p) => (
-              <label key={p.id} className="text-sm flex items-center gap-1">
-                <input type="checkbox" checked={u.project_ids.includes(p.id)} onChange={() => toggleProject(p.id)} /> {p.name}
-              </label>
+              <span key={p.id} className="text-sm flex items-center gap-2">
+                <label className="flex items-center gap-1"><input type="checkbox" checked={u.project_ids.includes(p.id)} onChange={() => toggleProject(p.id)} /> {p.name}{p.code ? ` (${p.code})` : ""}</label>
+                {u.project_ids.includes(p.id) && (
+                  <select aria-label={`Role on ${p.name}`} value={roles[p.id] || "approver"} onChange={(e) => setRoles({ ...roles, [p.id]: e.target.value })} className="px-1 py-0.5 rounded text-xs" style={fs}>
+                    {ROLES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                  </select>
+                )}
+              </span>
             ))}
             {!projects.length && <span className="text-sm" style={{ color: C.mute }}>No projects yet.</span>}
           </div>
@@ -165,7 +185,7 @@ function People() {
   const [note, setNote] = useState(null);
   const [invite, setInvite] = useState(null);
   const clients = useRows(() => supabase.from("clients").select("id,name,org").order("name"), []);
-  const projects = useRows(() => supabase.from("projects").select("id,slug,name,client_id").order("name"), []);
+  const projects = useRows(() => supabase.from("projects").select("id,slug,code,name,client_id").order("name"), []);
   const services = useRows(() => supabase.from("project_services").select("*").order("created_at"), []);
 
   const load = useCallback(async () => {
