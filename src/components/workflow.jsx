@@ -311,7 +311,9 @@ export function ClientHome({ p, role, needs, go, since, name }) {
   const next = chg.rows ? nextUpdate(chg.rows, p.id) : null;
   // Results: the new Search campaign only (old PMax and video figures would distract); the latest value of up to three figures, with the change on the period before
   const byMetric = new Map(); (mets.rows || []).filter((m) => /search/i.test(m.metric)).forEach((m) => byMetric.set(m.metric, [...(byMetric.get(m.metric) || []), m]));
-  const results = [...byMetric].slice(0, 3).map(([m, list]) => { const a = list.at(-1), b = list.at(-2); return { m, v: Number(a.value), unit: a.unit, d: b ? Number(a.value) - Number(b.value) : null, p: a.period }; });
+  const results = [...byMetric].map(([m, list]) => { const a = list.at(-1), b = list.at(-2); return { m, v: Number(a.value), unit: a.unit, d: b ? Number(a.value) - Number(b.value) : null, p: a.period }; })
+    // Ad impressions first, then the biggest figures
+    .sort((x, y) => (y.m === "Search ad impressions") - (x.m === "Search ad impressions") || y.v - x.v).slice(0, 3);
   const fmtV = (r) => (r.unit === "₹" ? `₹${Math.round(r.v).toLocaleString("en-IN")}` : Math.round(r.v).toLocaleString("en-IN"));
   return (
     <div>
