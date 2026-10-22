@@ -30,6 +30,26 @@ function Menu({ label, items, path }) {
 }
 
 
+/*
+ * Everyone except the admin: no right-click menu, no copying, cutting, dragging or selecting page text, and no
+ * save / view-source / select-all shortcuts. Typing, copying and pasting inside form fields still works.
+ * This stops casual copying; it cannot stop screenshots.
+ */
+const inField = (e) => !!e.target?.closest?.("input, textarea, select, [contenteditable=true]");
+function protectContent() {
+  const block = (e) => { if (!inField(e)) e.preventDefault(); };
+  const keys = (e) => {
+    const k = e.key?.toLowerCase();
+    if (k === "f12" || ((e.ctrlKey || e.metaKey) && e.shiftKey && ["i", "j", "c"].includes(k))) return e.preventDefault();
+    if ((e.ctrlKey || e.metaKey) && ["c", "x", "a", "s", "u"].includes(k) && !inField(e)) e.preventDefault();
+  };
+  const evs = ["contextmenu", "copy", "cut", "dragstart", "selectstart"];
+  evs.forEach((t) => document.addEventListener(t, block));
+  document.addEventListener("keydown", keys);
+  document.body.classList.add("no-copy");
+  return () => { evs.forEach((t) => document.removeEventListener(t, block)); document.removeEventListener("keydown", keys); document.body.classList.remove("no-copy"); };
+}
+
 export default function Layout() {
   const { session, profile } = useAuth();
   const links = !session || !profile ? [] : profile.is_owner ? ADMIN : CLIENT;
@@ -38,6 +58,8 @@ export default function Layout() {
   const open = ["/login", "/privacy"].includes(path);
   // Client page views (project sections are recorded by the project page itself)
   useEffect(() => { if (profile && !profile.is_owner && !path.startsWith("/portal/p/")) track(path); }, [path, profile]);
+  const admin = !!profile?.is_owner;
+  useEffect(() => (admin ? undefined : protectContent()), [admin]);
   return (
     <div style={{ background: C.bg, minHeight: "100vh", fontFamily: FB, color: C.ink }}>
       <header style={{ background: C.card, borderBottom: `1px solid ${C.rule}` }}>
