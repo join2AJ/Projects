@@ -181,8 +181,10 @@ export function FeesEditor({ projectId }) {
 }
 
 /* ───────── client: their fees, approve or propose ───────── */
-function FeeRow({ r, onSaved, tax }) {
-  const [mode, setMode] = useState(null); // "offer"
+/* One service in the client's fee table: tap the name for what it covers; approve or suggest a price. */
+function FeeLine({ r, std, tax, about, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const [offer, setOffer] = useState(false);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [msg, setMsg] = useState(null);
@@ -191,37 +193,61 @@ function FeeRow({ r, onSaved, tax }) {
     setMsg(null);
     const { error } = await supabase.rpc("respond_fee", { service: r.id, choice, amount: choice === "offer" ? Number(amount) : null, note: note || null });
     if (error) return setMsg(error.message);
-    setMode(null); setAmount(""); setNote(""); onSaved();
+    setOffer(false); setAmount(""); setNote(""); onSaved();
   };
-  return (
-    <div id={`item-${r.id}`} className="p-4 mb-3" style={{ background: C.card, border: `1px solid ${C.rule}`, borderLeft: `4px solid ${r.client_response === "approved" ? C.good : r.client_response === "offer" ? C.warn : C.info}`, borderRadius: 3 }}>
-      <div className="flex flex-wrap items-baseline gap-2">
-        <span className="font-semibold flex-1" style={{ minWidth: 0 }}>{r.name}</span>
-        <span className="font-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>{inr(r.price)} <span className="text-xs" style={{ color: C.mute }}>{per(r.kind)} · {tax.label}{tax.applies ? ` (${inr(Number(r.price) + gstOn(r.price, tax))} in all)` : ""}</span></span>
-      </div>
-      <div className="text-xs mb-2" style={{ color: C.mute }}>{r.status}{r.note ? ` · ${r.note}` : ""}</div>
-      {r.client_response === "approved" && <div className="text-sm mb-2"><Chip tone="good">You approved</Chip> <span className="text-xs" style={{ color: C.mute }}>{fmtDateTime(r.client_response_at)}</span></div>}
-      {r.client_response === "offer" && <div className="text-sm mb-2"><Chip tone="warn">You proposed {inr(r.client_offer)}</Chip> <span className="text-xs" style={{ color: C.mute }}>{fmtDateTime(r.client_response_at)}{r.client_note ? ` · ${r.client_note}` : ""} · Ajay will reply</span></div>}
-      {!locked && r.client_response !== "approved" && (
-        <div className="flex flex-wrap gap-2 items-center">
-          <button onClick={() => send("approved")} className="px-4 py-1.5 rounded text-sm font-semibold" style={{ border: `1px solid ${C.good}`, background: C.goodBg, color: C.good }}>Approve {inr(r.price)}</button>
-          <button onClick={() => setMode(mode ? null : "offer")} aria-expanded={!!mode} className="px-4 py-1.5 rounded text-sm font-semibold" style={{ border: `1px solid ${C.rule}`, background: "#fff" }}>{r.client_response === "offer" ? "Change my price" : "Suggest your price"}</button>
-        </div>
-      )}
-      {mode && (
-        <div className="mt-2 grid gap-2 md:grid-cols-3 items-end">
-          <label htmlFor={`offer-${r.id}`} className="block text-xs" style={{ color: C.mute }}>Your price (₹) {per(r.kind)}{tax.applies ? `, before ${tax.rate}% GST` : ""}
-            <input id={`offer-${r.id}`} type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} className={input} style={fs} />
-          </label>
-          <label htmlFor={`onote-${r.id}`} className="block text-xs md:col-span-2" style={{ color: C.mute }}>Note (optional)
-            <input id={`onote-${r.id}`} value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} className={input} style={fs} />
-          </label>
-          <div><button onClick={() => send("offer")} disabled={!amount} className="px-3 py-1 rounded text-sm font-semibold" style={{ background: C.deep, color: "#fff", opacity: amount ? 1 : 0.5 }}>Send my price</button></div>
-        </div>
-      )}
-      {msg && <div className="text-sm mt-2" style={{ color: C.bad }}>{msg}</div>}
-    </div>
-  );
+  const off = std != null && Number(std) > Number(r.price) ? Number(std) - Number(r.price) : 0;
+  const cell = "py-2 pr-3 align-top";
+  const line = { borderBottom: open || offer || msg ? "none" : `1px solid ${C.rule}` };
+  return (<>
+    <tr id={`item-${r.id}`} style={line}>
+      <td className={cell}>
+        <button onClick={() => setOpen(!open)} aria-expanded={open} className="text-left font-semibold underline" style={{ color: C.deep }}>{r.name}</button>
+        <div className="text-xs" style={{ color: C.mute }}>{open ? "Tap to close" : "Tap for what it covers"}</div>
+      </td>
+      <td className={cell}>{r.kind === "monthly" ? "Monthly" : r.kind === "hourly" ? "Hourly" : "One-time"}</td>
+      <td className={cell + " text-right"} style={{ fontVariantNumeric: "tabular-nums" }}>{std != null ? inr(std) : "–"}</td>
+      <td className={cell + " text-right"} style={{ color: C.good, fontVariantNumeric: "tabular-nums" }}>{off ? `−${inr(off)} (${Math.round((off / Number(std)) * 100)}%)` : "–"}</td>
+      <td className={cell + " text-right"} style={{ fontVariantNumeric: "tabular-nums" }}><b>{inr(r.price)}</b><div className="text-xs" style={{ color: C.mute }}>{tax.applies ? `${inr(Number(r.price) + gstOn(r.price, tax))} with GST` : "No GST"}</div></td>
+      <td className={cell}>{r.status}</td>
+      <td className={cell}>
+        {r.client_response === "approved" ? <span><Chip tone="good">Approved</Chip><div className="text-xs" style={{ color: C.mute }}>{fmtDateTime(r.client_response_at)}</div></span>
+          : r.client_response === "offer" ? <span><Chip tone="warn">You suggested {inr(r.client_offer)}</Chip><div className="text-xs" style={{ color: C.mute }}>Ajay will reply</div></span>
+          : locked ? "–" : (
+            <span className="flex flex-col gap-1" style={{ minWidth: 150 }}>
+              <button onClick={() => send("approved")} className="px-3 py-1 rounded text-xs font-semibold" style={{ border: `1px solid ${C.good}`, background: C.goodBg, color: C.good }}>Approve</button>
+              <button onClick={() => setOffer(!offer)} aria-expanded={offer} className="px-3 py-1 rounded text-xs font-semibold" style={{ border: `1px solid ${C.rule}`, background: "#fff" }}>Suggest your price</button>
+            </span>
+          )}
+        {r.client_response === "offer" && !locked && <button onClick={() => setOffer(!offer)} className="text-xs underline mt-1" style={{ color: C.deep }}>Change</button>}
+      </td>
+    </tr>
+    {(open || offer || msg) && (
+      <tr style={{ borderBottom: `1px solid ${C.rule}` }}>
+        <td colSpan={7} className="pb-3 pr-3">
+          {open && (
+            <div className="p-3 mb-2 rounded text-sm" style={{ background: C.bg }}>
+              {about?.why && <P style={{ marginBottom: 6 }}>{about.why}</P>}
+              {about?.includes && <ul className="pl-5" style={{ listStyle: "disc", lineHeight: 1.6 }}>{about.includes.split("\n").filter(Boolean).map((x) => <li key={x}>{x}</li>)}</ul>}
+              {r.note && <div className="mt-1" style={{ color: C.mute }}>{r.note}</div>}
+              {!about?.why && !r.note && <span style={{ color: C.mute }}>Ajay will add a description.</span>}
+            </div>
+          )}
+          {offer && (
+            <div className="grid gap-2 md:grid-cols-3 items-end">
+              <label htmlFor={`offer-${r.id}`} className="block text-xs" style={{ color: C.mute }}>Your price (₹) {per(r.kind)}{tax.applies ? `, before ${tax.rate}% GST` : ""}
+                <input id={`offer-${r.id}`} type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} className={input} style={fs} />
+              </label>
+              <label htmlFor={`onote-${r.id}`} className="block text-xs" style={{ color: C.mute }}>Note (optional)
+                <input id={`onote-${r.id}`} value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} className={input} style={fs} />
+              </label>
+              <div><button onClick={() => send("offer")} disabled={!amount} className="px-3 py-1 rounded text-sm font-semibold" style={{ background: C.deep, color: "#fff", opacity: amount ? 1 : 0.5 }}>Send my price</button></div>
+            </div>
+          )}
+          {msg && <div className="text-sm mt-1" style={{ color: C.bad }}>{msg}</div>}
+        </td>
+      </tr>
+    )}
+  </>);
 }
 
 /* The client's own money dashboard: what they pay every month, and one-time. */
@@ -256,6 +282,8 @@ export function FeesClient({ projectId, project = null, banner = null }) {
   const [busy, setBusy] = useState(false);
   const fees = useRows(() => supabase.from("project_services").select("*").eq("project_id", projectId).eq("client_visible", true).order("created_at"), [projectId]);
   const cat = useRows(() => supabase.from("services").select("id,why,includes"), []);
+  const stds = useRows(() => supabase.rpc("client_fee_standards", { p: projectId }), [projectId]);
+  const stdOf = (id) => (stds.rows || []).find((x) => x.service_id === id)?.list_price ?? null;
   const [open, setOpen] = useState(null);
   const rows = fees.rows || [];
   const svc = (k) => (cat.rows || []).find((c) => c.id === k);
@@ -275,30 +303,21 @@ export function FeesClient({ projectId, project = null, banner = null }) {
       <P style={{ color: C.mute, marginTop: -8 }}>{tax.applies ? `GST at ${tax.rate}% is added to each fee${business?.gstin ? ` (GSTIN ${business.gstin})` : ""}.` : "No GST is charged: you pay these fees directly."}</P>
       {banner}
       <H2>Your fees</H2>
-      <P>Approve each fee, or suggest your own price and Ajay will reply. Every answer is saved with its date and time.</P>
+      <P>Tap a service to see what it covers. Approve each fee, or suggest your own price and Ajay will reply. Every answer is saved with its date and time.</P>
       {waiting > 0 && (
         <Box tone="warn" title={`Is this OK? ${waiting} fee${waiting > 1 ? "s" : ""} waiting for your answer`}>
           <div className="mb-2">{[sumOf("monthly") && `${inr(sumOf("monthly"))} a month`, sumOf("once") && `${inr(sumOf("once"))} one-time`].filter(Boolean).join(" and ")}{tax.applies ? `, ${tax.label}` : ", no GST"}. Approve them all in one go, or answer each fee below (approve, or suggest your own price).</div>
           <button disabled={busy} onClick={approveAll} className="px-4 py-1.5 rounded text-sm font-semibold" style={{ border: `1px solid ${C.good}`, background: C.goodBg, color: C.good }}>{busy ? "Saving…" : `Yes, this is OK: approve all ${waiting}`}</button>
         </Box>
       )}
-      {rows.map((r) => <FeeRow key={r.id + (r.client_response_at || "") + r.price} r={r} onSaved={fees.reload} tax={tax} />)}
-      {rows.some((r) => svc(r.service_key)?.why) && <H2>What each service covers</H2>}
-      {rows.map((r) => {
-        const s = svc(r.service_key);
-        if (!s?.why) return null;
-        return (
-          <div key={r.id} className="mb-2">
-            <button className="text-sm underline text-left" style={{ color: C.deep }} onClick={() => setOpen(open === r.id ? null : r.id)}>{r.name}</button>
-            {open === r.id && (
-              <Card className="mt-1">
-                <P style={{ marginBottom: 6 }}>{s.why}</P>
-                {s.includes && <ul className="text-sm pl-5" style={{ listStyle: "disc", lineHeight: 1.6 }}>{s.includes.split("\n").filter(Boolean).map((x) => <li key={x}>{x}</li>)}</ul>}
-              </Card>
-            )}
-          </div>
-        );
-      })}
+      <div className="overflow-x-auto mb-4">
+        <table className="w-full text-sm" style={{ borderCollapse: "collapse" }} aria-label="Your fees">
+          <thead><tr>{[["Service"], ["Billing"], ["Standard", 1], ["Discount", 1], ["Your fee", 1], ["Status"], ["Your answer"]].map(([h, r]) => (
+            <th key={h} className="py-2 pr-3 font-semibold" style={{ borderBottom: `2px solid ${C.deep}`, color: C.deep, whiteSpace: "nowrap", textAlign: r ? "right" : "left" }}>{h}</th>
+          ))}</tr></thead>
+          <tbody>{rows.map((r) => <FeeLine key={r.id + (r.client_response_at || "") + r.price} r={r} std={stdOf(r.id)} tax={tax} about={svc(r.service_key)} onSaved={fees.reload} />)}</tbody>
+        </table>
+      </div>
     </div>
   );
 }

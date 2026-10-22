@@ -291,11 +291,12 @@ export function useNeedsYou(p, role) {
     ...(approver ? dec.rows.map((d) => ({ tab: "decisions", id: d.id, kind: "Answer", text: d.question, due: d.due_on })) : []),
     ...(approver ? del.rows.map((d) => ({ tab: "approvals", id: d.id, kind: "Sign off", text: d.title, due: d.due_on })) : []),
     ...(approver ? cyc.rows.map((c) => ({ tab: "monthly", id: c.id, kind: "Approve report", text: monthName(c.month) })) : []),
-    ...(approver ? fee.rows.map((f) => ({ tab: "money", id: f.id, kind: "Your OK on fee", text: `${f.name}: ₹${Math.round(f.price).toLocaleString("en-IN")}${f.kind === "monthly" ? " a month" : ""}` })) : []),
+    // One line for all fees; it goes away once every fee has an answer
+    ...(approver && fee.rows.length ? [{ tab: "money", id: "fees", kind: "Your approval", text: "Kindly have a look at the Money section: your approval is awaited" }] : []),
     ...replies.map((r) => ({ tab: "requests", id: r.id, kind: "Ajay replied", text: r.details })),
     ...(doer ? act.rows.map((a) => ({ tab: "meetings", id: a.id, kind: "Your action", text: a.body, due: a.due_on, action: true })) : []),
   ].sort((a, b) => String(a.due || "9").localeCompare(String(b.due || "9")));
-  const counts = { decisions: approver ? dec.rows?.length || 0 : 0, approvals: approver ? del.rows?.length || 0 : 0, monthly: approver ? cyc.rows?.length || 0 : 0, money: approver ? fee.rows?.length || 0 : 0, requests: replies.length, meetings: doer ? act.rows?.length || 0 : 0 };
+  const counts = { decisions: approver ? dec.rows?.length || 0 : 0, approvals: approver ? del.rows?.length || 0 : 0, monthly: approver ? cyc.rows?.length || 0 : 0, money: approver && fee.rows?.length ? 1 : 0, requests: replies.length, meetings: doer ? act.rows?.length || 0 : 0 };
   return { loading, items, counts, reload: () => [dec, req, act, del, cyc, fee].forEach((x) => x.reload()) };
 }
 
@@ -329,10 +330,10 @@ export function ClientHome({ p, role, needs, go, since, name }) {
             {needs.items.map((i) => (
               <li key={i.tab + i.id} className="flex flex-wrap items-center gap-2 py-2" style={{ borderTop: `1px solid ${C.rule}` }}>
                 <Chip tone={i.action ? "info" : "warn"}>{i.kind}</Chip>
-                <Link className="flex-1 text-left text-sm underline" style={{ minWidth: 0, color: C.ink }} to={`?tab=${i.tab}&item=${i.id}`}>{i.text.length > 110 ? i.text.slice(0, 110) + "…" : i.text}</Link>
+                <Link className="flex-1 text-left text-sm underline" style={{ minWidth: 0, color: C.ink }} to={i.id === "fees" ? `?tab=${i.tab}` : `?tab=${i.tab}&item=${i.id}`}>{i.text.length > 110 ? i.text.slice(0, 110) + "…" : i.text}</Link>
                 {i.due && <span className="text-xs" style={{ color: i.due < today() ? C.bad : C.mute }}>by {fmtDate(i.due)}</span>}
                 {i.action && <button disabled={busy === i.id} onClick={() => done(i.id)} className="px-2 py-0.5 rounded text-xs font-semibold" style={{ border: `1px solid ${C.good}`, color: C.good, background: C.goodBg }}>Mark done</button>}
-                <Link to={`?tab=${i.tab}&item=${i.id}`} className="px-2 py-0.5 rounded text-xs font-semibold" style={btn}>Open</Link>
+                <Link to={i.id === "fees" ? `?tab=${i.tab}` : `?tab=${i.tab}&item=${i.id}`} className="px-2 py-0.5 rounded text-xs font-semibold" style={btn}>Open</Link>
               </li>
             ))}
           </ul>
