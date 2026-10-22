@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { supabase, BUCKET } from "../lib/supabase.js";
 import { useRows } from "../lib/useRows.js";
-import { balance, invoiceState, fmtDate, isOverdue, total } from "../lib/money.js";
+import { balance, invoiceState, fmtDate, fmtDateTime, isOverdue, total } from "../lib/money.js";
 import { LABEL, TONE } from "../lib/schema.js";
 import { STAGES, TIMETABLE, WEEKLY } from "../data/studio.js";
 import { KIND_LABEL, weeklyLabel, nextUpdate, loadChanges } from "../lib/weekly.js";
@@ -121,7 +121,7 @@ export function MoneyClient({ projectId, project = null }) {
 
 /* ───────── metrics ───────── */
 export function MetricsPanel({ projectId, from = null, before = null, empty = "No numbers recorded yet." }) {
-  const all = useRows(() => supabase.from("metrics").select("metric,period,value,unit,source").eq("project_id", projectId).eq("client_visible", true).order("period"), [projectId]);
+  const all = useRows(() => supabase.from("metrics").select("metric,period,value,unit,source,updated_at").eq("project_id", projectId).eq("client_visible", true).order("period"), [projectId]);
   const rows = all.rows && all.rows.filter((r) => (!from || r.period >= from) && (!before || r.period < before));
   const names = useMemo(() => [...new Set((rows || []).map((r) => r.metric))], [rows]);
   const [pick, setPick] = useState(null);
@@ -137,8 +137,13 @@ export function MetricsPanel({ projectId, from = null, before = null, empty = "N
   const last12 = vals.slice(-12), prev12 = vals.slice(-24, -12);
   const sum = (a) => a.reduce((x, y) => x + y, 0);
   const fmtV = (v) => (unit === "₹" ? inr(v) : Math.round(v).toLocaleString("en-IN") + (unit ? ` ${unit}` : ""));
+  const stamp = rows.map((r) => r.updated_at).filter(Boolean).sort().at(-1);
   return (
     <div>
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+        <span className="font-semibold text-sm" style={{ color: C.deep }}>Monthly totals <span className="font-normal text-xs" style={{ color: C.mute }}>(one point per month; day-by-day figures are in the campaign above)</span></span>
+        {stamp && <span className="text-xs" style={{ color: C.mute }}>Updated as on <b style={{ color: C.ink }}>{fmtDateTime(stamp)} IST</b></span>}
+      </div>
       <Pills label="Metric" value={m} onChange={setPick} options={names.map((n) => [n, n])} />
       <div style={{ width: "100%", height: 280 }}>
         <ResponsiveContainer>

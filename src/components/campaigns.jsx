@@ -7,7 +7,7 @@ import { useState } from "react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, LabelList } from "recharts";
 import { supabase } from "../lib/supabase.js";
 import { useRows } from "../lib/useRows.js";
-import { fmtDate } from "../lib/money.js";
+import { fmtDate, fmtDateTime } from "../lib/money.js";
 import { C, Chip, H2, P, Card, Box } from "./ui.jsx";
 
 const input = "mt-1 w-full px-2 py-1.5 rounded text-sm";
@@ -58,13 +58,18 @@ export function parseTimeSeries(text) {
   if (imp < 0) imp = pick(/impr.*headline/);
   const cols = { impressions: imp, clicks: pick(/^clicks$/), cost: pick(/^cost$/), calls: pick(/phone calls|^calls$/), conversions: pick(/^conversions$/) };
   const found = Object.entries(cols).filter(([, i]) => i >= 0).map(([k]) => k);
+  // Other "Impr.(…)" columns, e.g. Impr.(Sitelink), are kept by day as extras: "Sitelink shown"
+  const raw = splitCsv(lines[hi]);
+  const extra = raw.map((h, i) => [i, h.match(/^impr\.?\s*\((.+)\)$/i)?.[1]]).filter(([i, l]) => l && i !== imp).map(([i, l]) => [i, `${l.replace(/^Mobile clicks-to-call$/i, "Call button").replace(/^Get location details$/i, "Location details")} shown`]);
+  if (extra.length) found.push("extras");
   if (!found.length) throw new Error("No impressions, clicks, cost, calls or conversions columns found.");
   const rows = lines.slice(hi + 1).map(splitCsv).map((c) => {
     const day = parseDay(c[0]);
     if (!day) return null;
     const r = { day };
     // Blank or "--" cells are left out, so figures already saved for that day stay
-    for (const k of found) { const v = num(c[cols[k]]); if (v != null) r[k] = v; }
+    for (const k of found) { if (k === "extras") continue; const v = num(c[cols[k]]); if (v != null) r[k] = v; }
+    if (extra.length) r.extras = Object.fromEntries(extra.map(([i, l]) => [l, num(c[i])]).filter(([, v]) => v != null));
     return r;
   }).filter(Boolean);
   return { rows, found };
@@ -222,6 +227,8 @@ function Campaign({ c, days, admin, onChange }) {
   const [more, setMore] = useState(false);
   const [adding, setAdding] = useState(false);
   const list = days.filter((d) => d.campaign_id === c.id).sort((a, b) => a.day.localeCompare(b.day));
+  const stamp = [c.updated_at, ...list.map((d) => d.updated_at)].filter(Boolean).sort().at(-1);
+  const extraKeys = [...new Set(list.flatMap((d) => Object.keys(d.extras || {})))];
   // A total only when every day the ad ran has the figure (a day it was never shown counts as 0), so a part-filled column never looks complete
   const sum = (k) => (list.every((d) => d[k] != null || !Number(d.impressions)) && list.some((d) => d[k] != null) ? list.reduce((a, d) => a + (n0(d[k]) || 0), 0) : null);
   const tot = { impressions: sum("impressions"), clicks: sum("clicks"), cost: sum("cost"), calls: sum("calls"), conversions: sum("conversions") };
@@ -264,6 +271,7 @@ function Campaign({ c, days, admin, onChange }) {
       )}
       {(list.length > 0 || admin) && (<>
         <div className="font-semibold text-sm mt-4 mb-2" style={{ color: C.deep }}>Trend and results by day{c.started_on ? ` since ${fmtDate(c.started_on)}` : ""}</div>
+        {list.length > 0 && <div className="text-xs mb-2" style={{ color: C.mute }}>Report updated as on <b style={{ color: C.ink }}>{fmtDateTime(stamp)} IST</b> · figures up to {fmtDate(list.at(-1).day)}</div>}
         <Trends list={list} />
         {!list.length ? <P style={{ color: C.mute }}>No figures yet.</P> : (
           <div className="overflow-x-auto">
@@ -284,6 +292,18 @@ function Campaign({ c, days, admin, onChange }) {
                     <td key={i} className="py-1.5 pr-3 font-semibold" style={{ textAlign: i ? "right" : "left", whiteSpace: "nowrap" }}>{v}</td>
                   ))}
                 </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+        {extraKeys.length > 0 && (
+          <div className="overflow-x-auto mt-3">
+            <div className="text-xs font-semibold mb-1" style={{ color: C.ink }}>Extras shown with the ad, by day</div>
+            <table className="w-full text-sm" style={{ borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" }} aria-label={`Extras by day: ${c.name}`}>
+              <thead><tr>{["Day", ...extraKeys].map((h, i) => <th key={h} className="py-1.5 pr-3 font-semibold" style={{ borderBottom: `2px solid ${C.deep}`, color: C.deep, textAlign: i ? "right" : "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+              <tbody>
+                {list.map((d) => <tr key={d.day}>{[fmtDate(d.day), ...extraKeys.map((k) => int(n0(d.extras?.[k])))].map((v, i) => <td key={i} className="py-1.5 pr-3" style={{ borderBottom: `1px solid ${C.rule}`, textAlign: i ? "right" : "left", whiteSpace: "nowrap" }}>{v}</td>)}</tr>)}
+                <tr>{["Total", ...extraKeys.map((k) => int(list.reduce((a, d) => a + (n0(d.extras?.[k]) || 0), 0)))].map((v, i) => <td key={i} className="py-1.5 pr-3 font-semibold" style={{ textAlign: i ? "right" : "left" }}>{v}</td>)}</tr>
               </tbody>
             </table>
           </div>

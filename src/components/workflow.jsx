@@ -303,7 +303,7 @@ export function ClientHome({ p, role, needs, go, since, name }) {
   const svc = useRows(() => supabase.from("project_services").select("id,name,kind,status,progress").eq("project_id", p.id).eq("client_visible", true).order("created_at"), [p.id]);
   const weekly = useRows(() => supabase.from("updates").select("id,title,body,happened_on").eq("project_id", p.id).eq("client_visible", true).eq("kind", "meeting").lte("happened_on", today()).order("happened_on", { ascending: false }).limit(1), [p.id]);
   const latest = useRows(() => supabase.from("updates").select("id,title,happened_on").eq("project_id", p.id).eq("client_visible", true).neq("kind", "note").lte("happened_on", today()).order("happened_on", { ascending: false }).limit(3), [p.id]);
-  const mets = useRows(() => supabase.from("metrics").select("metric,period,value,unit").eq("project_id", p.id).eq("client_visible", true).gte("period", since).order("period"), [p.id, since]);
+  const mets = useRows(() => supabase.from("metrics").select("metric,period,value,unit,updated_at").eq("project_id", p.id).eq("client_visible", true).gte("period", since).order("period"), [p.id, since]);
   const chg = useRows(loadChanges, []);
   const camp = useRows(() => supabase.from("campaigns").select("highlights").eq("project_id", p.id).eq("client_visible", true).eq("status", "live").not("highlights", "is", null).order("sort").limit(1), [p.id]);
   const good = (camp.rows?.[0]?.highlights || "").split("\n").filter(Boolean).slice(0, 2);
@@ -359,6 +359,7 @@ export function ClientHome({ p, role, needs, go, since, name }) {
           <span className="font-semibold" style={{ color: C.deep }}>Search campaign results</span>
           <Link className="text-xs underline" style={{ color: C.deep }} to="?tab=numbers">See all results</Link>
         </div>
+        {(mets.rows || []).length > 0 && <div className="text-xs mb-2" style={{ color: C.mute }}>Updated as on {fmtDateTime([...mets.rows].map((m) => m.updated_at).filter(Boolean).sort().at(-1))} IST</div>}
         {good.length > 0 && <ul className="text-sm mb-3 pl-5" style={{ listStyle: "disc", color: C.good, lineHeight: 1.6 }} aria-label="How it’s going">{good.map((x) => <li key={x}>{x}</li>)}</ul>}
         {!results.length ? <div className="text-sm" style={{ color: C.mute }}>Results for the new campaign appear here after the first weekly review.</div> : (
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
