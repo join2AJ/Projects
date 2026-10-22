@@ -175,7 +175,8 @@ export function Timeline({ project }) {
   ahead.sort((a, b) => a.day.localeCompare(b.day));
 
   const past = [
-    ...log.rows.map((e) => ({ at: e.at, who: e.actor_name, role: e.actor_role, what: e.summary })),
+    // The client's own answers were recorded as edits; say what they were
+    ...log.rows.map((e) => ({ at: e.at, who: e.actor_name, role: e.actor_role, what: e.summary.replace(/^Edited decision /, "Answered ") })),
     ...upd.rows.filter((u) => u.status !== "Scheduled" || u.happened_on < now)
       .map((u) => ({ at: u.publish_at || `${u.happened_on}T12:00:00+05:30`, who: "Ajay", role: "admin", what: `${u.kind === "meeting" ? "Weekly update" : "Update"}: ${u.title}`, dayOnly: !u.publish_at })),
   ].sort((a, b) => String(b.at).localeCompare(String(a.at)));
