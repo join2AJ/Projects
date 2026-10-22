@@ -1,6 +1,6 @@
 /* What a client sees after signing in: their projects, and one project in detail. */
 import { useEffect, useState } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase.js";
 import { useAuth } from "../../lib/auth.jsx";
 import { useRows } from "../../lib/useRows.js";
@@ -11,6 +11,7 @@ import { Timeline } from "../../components/activity.jsx";
 import { RequestThreads, WorkLog, YourData } from "../../components/collab.jsx";
 import { MeetingNotes } from "../../components/meetings.jsx";
 import { PromotionPlan } from "../../components/promotion.jsx";
+import { TabIndex } from "../../components/tabindex.jsx";
 import { track } from "../../lib/track.js";
 
 export function Portal() {
@@ -59,7 +60,9 @@ function Overview({ p, go }) {
 export function PortalProject() {
   const { slug } = useParams();
   const { rows, error } = useRows(() => supabase.from("projects").select("*").eq("slug", slug), [slug]);
-  const [tab, setTab] = useState("overview");
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") || "overview";
+  const setTab = (t) => setParams(t === "overview" ? {} : { tab: t });
   const p0 = rows?.[0];
   useEffect(() => { if (p0) track(`/portal/p/${p0.slug}`, p0.id, tab); }, [p0?.id, tab]);
   if (error) return <Box tone="bad" title="Could not load">{error.message}</Box>;
@@ -67,7 +70,7 @@ export function PortalProject() {
   const p = rows[0];
   if (!p) return <Box tone="warn" title="Project not found">This project is not shared with your email. <Link to="/portal" className="underline">Your projects</Link></Box>;
   const tabs = [
-    ["overview", "Overview"], ["timeline", "Timeline"], ["meetings", "Meeting notes"], ["promotion", "Promotion plan"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"],
+    ["index", "Index"], ["overview", "Overview"], ["timeline", "Timeline"], ["meetings", "Meeting notes"], ["promotion", "Promotion plan"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"],
     ["files", "Files"], ["requests", "Requests"], ["work", "Work done"], ["numbers", "Numbers"],
     ...(p.report_key && REPORTS[p.report_key] ? [["report", REPORTS[p.report_key].label]] : []),
     ["data", "Your data"],
@@ -80,6 +83,7 @@ export function PortalProject() {
       <Tabs label="Project sections" tabs={tabs} value={tab} onChange={setTab} />
       {tab === "overview" && <Overview p={p} go={setTab} />}
       {tab === "decisions" && <DecisionsClient projectId={p.id} />}
+      {tab === "index" && <TabIndex tabs={tabs} slug={p.slug} onOpen={setTab} />}
       {tab === "timeline" && <Timeline project={p} />}
       {tab === "meetings" && <MeetingNotes projectId={p.id} />}
       {tab === "promotion" && <PromotionPlan projectId={p.id} />}

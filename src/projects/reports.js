@@ -8,6 +8,7 @@
  */
 import * as tailbone from "./tailbone/audit.jsx";
 import { MeetingBrief } from "./tailbone/meeting.jsx";
+import { History } from "./tailbone/history.jsx";
 
 export const REPORTS = {
   "tailbone-ads-2026-10": {
@@ -19,6 +20,7 @@ export const REPORTS = {
       ["issues", "Issues and fixes", tailbone.Issues],
       ["owner", "Campaign set-up", tailbone.OwnerBrief],
       ["roi", "Campaign ROI", tailbone.RoiTab],
+      ["history", "Account history 2014–2026", History],
       ["audit", "Conversion audit", tailbone.ConvAudit],
       ["habits", "Spending habits", tailbone.Habits],
       ["budget", "Future budget", tailbone.Budget],

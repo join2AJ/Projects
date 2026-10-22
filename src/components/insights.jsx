@@ -12,7 +12,7 @@ import { emailToLogin } from "../lib/auth.jsx";
 import { C, Chip, H2, P, T, Card } from "./ui.jsx";
 
 const PAGE = { "/portal": "My projects", "/services": "Services", "/process": "How we work", "/security": "Security", "/account": "Account", "/privacy": "Privacy notice" };
-const TAB = { overview: "Overview", timeline: "Timeline", meetings: "Meeting notes", promotion: "Promotion plan", decisions: "Decisions", updates: "Updates", issues: "Issues", money: "Money", files: "Files", requests: "Requests", work: "Work done", numbers: "Numbers", report: "Ads audit report", data: "Your data" };
+const TAB = { index: "Index", overview: "Overview", timeline: "Timeline", meetings: "Meeting notes", promotion: "Promotion plan", decisions: "Decisions", updates: "Updates", issues: "Issues", money: "Money", files: "Files", requests: "Requests", work: "Work done", numbers: "Numbers", report: "Ads audit report", data: "Your data" };
 export const sectionOf = (v) => (v.tab ? TAB[v.tab] || v.tab : PAGE[v.path] || v.path);
 const ist = (d, o) => new Date(d).toLocaleString("en-GB", { timeZone: "Asia/Kolkata", ...o });
 const dayKey = (d) => new Date(d).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });

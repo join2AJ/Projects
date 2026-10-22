@@ -1,6 +1,6 @@
 /* One project, editable: everything the client sees, plus money, time and private notes. */
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase.js";
 import { useRows } from "../../lib/useRows.js";
 import { FIELDS, defaultsFor } from "../../lib/schema.js";
@@ -19,6 +19,7 @@ import { ScheduleEditor, RequestThreads, CredentialsPanel, WorkLog, MoneySwitch 
 import { MeetingNotes } from "../../components/meetings.jsx";
 import { ClientActivity } from "../../components/insights.jsx";
 import { PromotionPlan } from "../../components/promotion.jsx";
+import { TabIndex } from "../../components/tabindex.jsx";
 import { WEEKLY, answerBy } from "../../data/studio.js";
 
 const field = "mt-1 w-full px-2 py-1.5 rounded text-sm";
@@ -235,7 +236,10 @@ export default function StudioProject() {
   const { slug } = useParams();
   const nav = useNavigate();
   const { rows, error, reload } = useRows(() => supabase.from("projects").select("*, clients(name,org,email,phone)").eq("slug", slug), [slug]);
-  const [tab, setTab] = useState("overview");
+  // The open tab lives in the address (?tab=…), so every tab has its own link
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") || "overview";
+  const setTab = (t) => setParams(t === "overview" ? {} : { tab: t });
   const [bump, setBump] = useState(0);
   const numbers = useRows(() => supabase.from("invoices").select("number"), [bump, tab]);
   const chg = useRows(loadChanges, [bump]);
@@ -249,7 +253,7 @@ export default function StudioProject() {
   const nextNumber = `INV-${year}-${String(seq + 1).padStart(3, "0")}`;
   const nextDay = thisWeek(chg.rows || [], id).day;
   const tabs = [
-    ["overview", "Overview"], ["meetings", "Meetings"], ["promotion", "Promotion plan"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"], ["time", "Time"],
+    ["index", "Index"], ["overview", "Overview"], ["meetings", "Meetings"], ["promotion", "Promotion plan"], ["decisions", "Decisions"], ["updates", "Updates"], ["issues", "Issues"], ["money", "Money"], ["time", "Time"],
     ["files", "Files"], ["requests", "Requests"], ["work", "Work done"], ["numbers", "Numbers"],
     ...(p.report_key && REPORTS[p.report_key] ? [["report", "Report"]] : []),
     ["timeline", "Client timeline"], ["seen", "What the client views"], ["activity", "Activity"],
@@ -324,6 +328,7 @@ export default function StudioProject() {
       {tab === "requests" && <RequestThreads projectId={id} admin />}
       {tab === "work" && <WorkLog projectId={id} reportKey={p.report_key} admin onOpenReport={() => setTab("report")} />}
       {tab === "logins" && <CredentialsPanel projectId={id} />}
+      {tab === "index" && <TabIndex tabs={tabs} admin slug={p.slug} onOpen={setTab} />}
       {tab === "meetings" && <MeetingNotes projectId={id} admin />}
       {tab === "promotion" && <PromotionPlan projectId={id} admin cap={p.ads_cap} />}
       {tab === "seen" && <ClientActivity projectId={id} />}

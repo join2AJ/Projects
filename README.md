@@ -148,6 +148,9 @@ username, password and the `/login` address yourself.
   and Facebook, influencers, Meta ads, referral partners, WhatsApp, reviews, measurement) with its strategies:
   status, priority, monthly budget, who, and how success is measured. Planned ad spend is checked against the
   client's limit (project Overview → ad spend limit). Share points one by one; the client sees only those.
+- **Index and direct links:** every project tab has its own address (`?tab=decisions`, `?tab=meetings`…). The
+  **Index** tab says what each tab is for; in the admin view, **Copy client link** gives the client’s link to the same
+  tab for WhatsApp.
 - **Requests:** a conversation per request. Both sides reply; you set the status. Nothing can be edited or deleted.
 - **Work done:** project → Work done → **Log work** for each audit, report or piece of work (approve it on
   Updates for the client to see). Done work and milestones, the report and report files are listed in one place.
