@@ -4,6 +4,7 @@
  * impressions, clicks, cost, calls and conversions columns); figures already there for a day are updated.
  */
 import { useState } from "react";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, LabelList } from "recharts";
 import { supabase } from "../lib/supabase.js";
 import { useRows } from "../lib/useRows.js";
 import { fmtDate } from "../lib/money.js";
@@ -171,6 +172,50 @@ function CampaignForm({ projectId, c, onDone }) {
   );
 }
 
+/* ───────── date-wise trend: one small chart per measure (different scales never share an axis) ───────── */
+const short = (d) => new Date(`${d}T12:00:00+05:30`).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+function Trend({ title, data, fmt: raw }) {
+  const fmt = (v, axis) => (v == null ? "–" : raw(v, axis));
+  const last = data.length - 1;
+  return (
+    <figure className="p-2 rounded" style={{ border: `1px solid ${C.rule}` }}>
+      <figcaption className="text-xs font-semibold mb-1" style={{ color: C.ink }}>{title}</figcaption>
+      <div style={{ height: 130 }}>
+        <ResponsiveContainer>
+          <LineChart data={data} margin={{ top: 16, right: 18, left: -18, bottom: 0 }}>
+            <CartesianGrid stroke={C.rule} strokeOpacity={0.6} vertical={false} />
+            <XAxis dataKey="d" tick={{ fontSize: 10, fill: C.mute }} tickLine={false} axisLine={{ stroke: C.rule }} interval="preserveStartEnd" />
+            <YAxis tick={{ fontSize: 10, fill: C.mute }} tickLine={false} axisLine={false} allowDecimals={false} width={44} tickFormatter={(v) => fmt(v, true)} />
+            <Tooltip formatter={(v) => [fmt(v), title]} labelStyle={{ color: C.ink }} itemStyle={{ color: C.ink }} contentStyle={{ fontSize: 12, borderColor: C.rule }} cursor={{ stroke: C.mute, strokeDasharray: "3 3" }} />
+            <Line type="monotone" dataKey="v" stroke={C.deep} strokeWidth={2} dot={{ r: 4, fill: C.deep, stroke: C.card, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls isAnimationActive={false}>
+              {/* Only the latest value is labelled; the rest are on hover and in the table below */}
+              <LabelList dataKey="v" content={({ x, y, value, index }) => (index === last && value != null ? <text x={x} y={y - 8} textAnchor="end" fontSize={11} fill={C.ink}>{fmt(value)}</text> : null)} />
+            </Line>
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </figure>
+  );
+}
+
+function Trends({ list }) {
+  const has = (k) => list.some((d) => d[k] != null);
+  const series = (f) => list.map((d) => ({ d: short(d.day), v: f(d) }));
+  const charts = [
+    has("impressions") && ["Times the ad was shown", series((d) => n0(d.impressions)), (v) => int(v)],
+    has("clicks") && ["Clicks", series((d) => n0(d.clicks)), (v) => int(v)],
+    has("impressions") && has("clicks") && ["Click rate", series((d) => (d.impressions && d.clicks != null ? Math.round((d.clicks / d.impressions) * 10000) / 100 : null)), (v, axis) => `${axis ? Math.round(v) : v.toFixed(2)}%`],
+    has("cost") && ["Spent (₹, before GST)", series((d) => n0(d.cost)), (v) => rs(v)],
+    has("calls") && ["Calls from the ad", series((d) => n0(d.calls)), (v) => int(v)],
+  ].filter(Boolean);
+  if (list.length < 2 || !charts.length) return null;
+  return (
+    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-3" aria-label="Trend by date">
+      {charts.map(([t, data, fmt]) => <Trend key={t} title={t} data={data} fmt={fmt} />)}
+    </div>
+  );
+}
+
 /* ───────── one campaign: details and results by day ───────── */
 function Campaign({ c, days, admin, onChange }) {
   const [edit, setEdit] = useState(false);
@@ -217,7 +262,8 @@ function Campaign({ c, days, admin, onChange }) {
         <button className="text-xs underline mt-1" style={{ color: C.deep }} onClick={() => setMore(!more)} aria-expanded={more}>{more ? "Fewer details" : "Keywords, the ad and more details"}</button>
       )}
       {(list.length > 0 || admin) && (<>
-        <div className="font-semibold text-sm mt-4 mb-1" style={{ color: C.deep }}>Results by day{c.started_on ? ` since ${fmtDate(c.started_on)}` : ""}</div>
+        <div className="font-semibold text-sm mt-4 mb-2" style={{ color: C.deep }}>Trend and results by day{c.started_on ? ` since ${fmtDate(c.started_on)}` : ""}</div>
+        <Trends list={list} />
         {!list.length ? <P style={{ color: C.mute }}>No figures yet.</P> : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm" style={{ borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" }} aria-label={`Results by day: ${c.name}`}>
