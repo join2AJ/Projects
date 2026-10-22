@@ -53,7 +53,7 @@ export function ProjectForm({ initial, onSaved }) {
     const body = {
       slug: p.slug, name: p.name, ...(p.code ? { code: p.code.trim().toUpperCase() } : {}), stage: p.stage, client_id, summary: p.summary || null, brief: p.brief || null,
       started_on: p.started_on || null, ended_on: p.ended_on || null, report_key: p.report_key || null,
-      next_meeting_at: p.next_meeting_at ? new Date(p.next_meeting_at).toISOString() : null, next_meeting_note: p.next_meeting_note || null, ads_cap: p.ads_cap === "" || p.ads_cap == null ? null : Number(p.ads_cap),
+      next_meeting_at: p.next_meeting_at ? new Date(p.next_meeting_at).toISOString() : null, next_meeting_note: p.next_meeting_note || null, ads_cap: p.ads_cap === "" || p.ads_cap == null ? null : Number(p.ads_cap), gst_applies: p.gst_applies !== false,
     };
     const { data, error } = p.id
       ? await supabase.from("projects").update(body).eq("id", p.id).select().single()
@@ -87,6 +87,7 @@ export function ProjectForm({ initial, onSaved }) {
         <L label="Extra one-off update (optional; weekly updates are every Tuesday 11:00)"><input type="datetime-local" value={localDT} onChange={set("next_meeting_at")} className={field} style={fs} /></L>
         <L label="Extra update about"><input value={p.next_meeting_note || ""} onChange={set("next_meeting_note")} className={field} style={fs} /></L>
         <L label="Client’s ad spend limit (₹ / month, incl. GST)"><input type="number" min="0" value={p.ads_cap ?? ""} onChange={set("ads_cap")} className={field} style={fs} /></L>
+        <label className="flex items-center gap-2 text-sm mb-3"><input type="checkbox" checked={p.gst_applies !== false} onChange={(e) => setP({ ...p, gst_applies: e.target.checked })} /> Charge GST on this project <Link to="/studio/tax" className="text-xs underline" style={{ color: C.mute }}>(only when your GSTIN is set: tax details)</Link></label>
         <L label="Custom report (optional)"><select value={p.report_key || ""} onChange={set("report_key")} className={field} style={fs}><option value="">None</option>{Object.entries(REPORTS).map(([k, r]) => <option key={k} value={k}>{r.label}</option>)}</select></L>
       </div>
       <button type="submit" className="px-4 py-2 rounded text-sm font-semibold" style={{ background: C.deep, color: "#fff" }}>{p.id ? "Save project" : "Create project"}</button>

@@ -96,7 +96,7 @@ export function DueBanner({ projectId }) {
   );
 }
 
-export function MoneyClient({ projectId }) {
+export function MoneyClient({ projectId, project = null }) {
   const inv = useRows(() => supabase.from("invoices").select("*").eq("project_id", projectId).neq("status", "draft").order("issued_on", { ascending: false }), [projectId]);
   const exp = useRows(() => supabase.from("expenses").select("*").eq("project_id", projectId).eq("client_visible", true).order("spent_on", { ascending: false }), [projectId]);
   const rows = inv.rows || [];
@@ -104,7 +104,7 @@ export function MoneyClient({ projectId }) {
   const paid = rows.reduce((a, i) => a + (i.status === "paid" ? total(i) : Number(i.paid_amount || 0)), 0);
   return (
     <div>
-      <FeesClient projectId={projectId} banner={<DueBanner projectId={projectId} />} />
+      <FeesClient projectId={projectId} project={project} banner={<DueBanner projectId={projectId} />} />
       <H2>Invoices</H2>
       <T head={["Invoice", "For", "Issued", "Total", "Status"]} right={[3]} rows={rows.map((i) => {
         const [l, tone] = invoiceState(i);

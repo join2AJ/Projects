@@ -151,11 +151,13 @@ export function Timeline({ project }) {
   const upd = useRows(() => supabase.from("updates").select("id,happened_on,publish_at,created_at,title,kind,status").eq("project_id", pid).eq("client_visible", true), [pid]);
   const dec = useRows(() => supabase.from("decisions").select("question,due_on,status,answer").eq("project_id", pid).eq("client_visible", true).eq("status", "open"), [pid]);
   const inv = useRows(() => supabase.from("invoices").select("number,due_on,status").eq("project_id", pid).eq("status", "sent"), [pid]);
+  // Ajay's replies to requests, so each "Request sent" has its answer next to it
+  const rep = useRows(() => supabase.from("request_messages").select("id,body,created_at,author_role,requests(details)").eq("project_id", pid).eq("author_role", "admin"), [pid]);
   const chg = useRows(loadChanges, []);
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 60000); return () => clearInterval(t); }, []);
 
-  if ([log, upd, dec, inv, chg].some((x) => !x.rows)) return <P>Loading…</P>;
+  if ([log, upd, dec, inv, chg, rep].some((x) => !x.rows)) return <P>Loading…</P>;
   const now = today();
   // The next weekly updates at their actual times. Skipped or moved dates are never mentioned to the client.
   const started = upd.rows.some((u) => u.kind === "meeting" && u.publish_at && new Date(u.publish_at) <= new Date());
@@ -177,6 +179,7 @@ export function Timeline({ project }) {
   const past = [
     // The client's own answers were recorded as edits; say what they were
     ...log.rows.map((e) => ({ at: e.at, who: e.actor_name, role: e.actor_role, what: e.summary.replace(/^Edited decision /, "Answered ") })),
+    ...rep.rows.map((m) => ({ at: m.created_at, who: "Ajay", role: "admin", what: `Ajay replied: “${m.body.length > 220 ? m.body.slice(0, 220) + "…" : m.body}”` })),
     ...upd.rows.filter((u) => u.status !== "Scheduled" || u.happened_on < now)
       .map((u) => ({ at: u.publish_at || `${u.happened_on}T12:00:00+05:30`, who: "Ajay", role: "admin", what: `${u.kind === "meeting" ? "Weekly update" : "Update"}: ${u.title}`, dayOnly: !u.publish_at })),
   ].sort((a, b) => String(b.at).localeCompare(String(a.at)));

@@ -12,6 +12,7 @@ import { Portal, PortalProject } from "./pages/portal/Portal.jsx";
 import Dashboard from "./pages/studio/Dashboard.jsx";
 import StudioProject, { NewProject } from "./pages/studio/StudioProject.jsx";
 import Compare, { Overheads } from "./pages/studio/Compare.jsx";
+import BusinessTax from "./pages/studio/BusinessTax.jsx";
 import Users from "./pages/studio/Users.jsx";
 import PriceList from "./pages/studio/PriceList.jsx";
 import Security from "./pages/Security.jsx";
@@ -40,6 +41,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="studio/pricing" element={<Require owner><PriceList /></Require>} />
             <Route path="studio/new" element={<Require owner><NewProject /></Require>} />
             <Route path="studio/compare" element={<Require owner><Compare /></Require>} />
+            <Route path="studio/tax" element={<Require owner><BusinessTax /></Require>} />
             <Route path="studio/overheads" element={<Require owner><Overheads /></Require>} />
             <Route path="studio/p/:slug" element={<Require><StudioProject /></Require>} />
             <Route path="*" element={<Entry />} />

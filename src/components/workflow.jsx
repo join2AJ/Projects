@@ -278,8 +278,9 @@ export function useNeedsYou(p, role) {
   const req = useRows(() => supabase.from("requests").select("id,details,status,reply,created_at,request_messages(author_role,created_at)").eq("project_id", pid).not("status", "in", "(done,declined)"), [pid]);
   const act = useRows(() => supabase.from("meeting_items").select("id,body,due_on,owner,status,meetings!inner(client_visible)").eq("project_id", pid).eq("kind", "action").eq("client_visible", true).eq("meetings.client_visible", true).in("owner", ["client", "both"]).in("status", ["open", "in_progress"]), [pid]);
   const del = useRows(() => supabase.from("deliverables").select("id,title,due_on").eq("project_id", pid).eq("client_visible", true).eq("status", "awaiting"), [pid]);
+  const fee = useRows(() => (p.money_open ? supabase.from("project_services").select("id,name,price,kind").eq("project_id", pid).eq("client_visible", true).is("client_response", null).not("status", "in", "(Declined,Stopped)") : Promise.resolve({ data: [] })), [pid, p.money_open]);
   const cyc = useRows(() => supabase.from("cycles").select("id,month").eq("project_id", pid).eq("client_visible", true).eq("status", "report_sent"), [pid]);
-  const loading = [dec, req, act, del, cyc].some((x) => !x.rows);
+  const loading = [dec, req, act, del, cyc, fee].some((x) => !x.rows);
   const approver = role === "approver";
   const doer = ["approver", "contributor"].includes(role);
   const replies = (req.rows || []).filter((r) => {
@@ -290,11 +291,12 @@ export function useNeedsYou(p, role) {
     ...(approver ? dec.rows.map((d) => ({ tab: "decisions", id: d.id, kind: "Answer", text: d.question, due: d.due_on })) : []),
     ...(approver ? del.rows.map((d) => ({ tab: "approvals", id: d.id, kind: "Sign off", text: d.title, due: d.due_on })) : []),
     ...(approver ? cyc.rows.map((c) => ({ tab: "monthly", id: c.id, kind: "Approve report", text: monthName(c.month) })) : []),
+    ...(approver ? fee.rows.map((f) => ({ tab: "money", id: f.id, kind: "Your OK on fee", text: `${f.name}: ₹${Math.round(f.price).toLocaleString("en-IN")}${f.kind === "monthly" ? " a month" : ""}` })) : []),
     ...replies.map((r) => ({ tab: "requests", id: r.id, kind: "Ajay replied", text: r.details })),
     ...(doer ? act.rows.map((a) => ({ tab: "meetings", id: a.id, kind: "Your action", text: a.body, due: a.due_on, action: true })) : []),
   ].sort((a, b) => String(a.due || "9").localeCompare(String(b.due || "9")));
-  const counts = { decisions: approver ? dec.rows?.length || 0 : 0, approvals: approver ? del.rows?.length || 0 : 0, monthly: approver ? cyc.rows?.length || 0 : 0, requests: replies.length, meetings: doer ? act.rows?.length || 0 : 0 };
-  return { loading, items, counts, reload: () => [dec, req, act, del, cyc].forEach((x) => x.reload()) };
+  const counts = { decisions: approver ? dec.rows?.length || 0 : 0, approvals: approver ? del.rows?.length || 0 : 0, monthly: approver ? cyc.rows?.length || 0 : 0, money: approver ? fee.rows?.length || 0 : 0, requests: replies.length, meetings: doer ? act.rows?.length || 0 : 0 };
+  return { loading, items, counts, reload: () => [dec, req, act, del, cyc, fee].forEach((x) => x.reload()) };
 }
 
 export function ClientHome({ p, role, needs, go, since, name }) {

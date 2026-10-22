@@ -40,7 +40,7 @@ function ServiceForm({ s, onDone, onCancel }) {
         <F label="Billing">
           <select id="s-kind" value={f.kind} onChange={set("kind")} className={input} style={fs}><option value="one-time">One-time</option><option value="monthly">Monthly</option><option value="hourly">Hourly</option></select>
         </F>
-        <F label="Your standard price (₹, ex-GST, private)"><input id="s-avg" type="number" min="0" required value={f.std_price ?? ""} onChange={set("std_price")} className={input} style={fs} /></F>
+        <F label="Your standard price (₹, private)"><input id="s-avg" type="number" min="0" required value={f.std_price ?? ""} onChange={set("std_price")} className={input} style={fs} /></F>
         <F label="Market: lowest typical (₹)"><input id="s-low" type="number" min="0" value={f.market_low ?? ""} onChange={set("market_low")} className={input} style={fs} /></F>
         <F label="Market: highest typical (₹)"><input id="s-high" type="number" min="0" value={f.market_high ?? ""} onChange={set("market_high")} className={input} style={fs} /></F>
         <F label="Minimum months (monthly services)"><input id="s-min" type="number" min="0" value={f.min_months ?? ""} onChange={set("min_months")} className={input} style={fs} /></F>

@@ -15,7 +15,7 @@ export default function Quote({ project, adSpendMonthly }) {
   return (
     <div>
       <H2>Scope and fees</H2>
-      <P>Untick a service to see the totals without it. Fees exclude GST. Ad spend goes from the clinic’s card straight to Google and is shown separately.</P>
+      <P>Untick a service to see the totals without it. Ad spend goes from the clinic’s card straight to Google and is shown separately.</P>
       <div className="grid gap-3 mb-4">
         {project.services.map((s) => {
           const svc = SERVICES[s.id];

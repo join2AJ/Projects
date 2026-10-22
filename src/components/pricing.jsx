@@ -3,6 +3,7 @@
  * A client's fee is project_services.price. The standard price and any discount are admin-only (fee_private,
  * service_notes.std_price): the client sees just their fee, and can approve it or propose their own.
  */
+import { useBusiness, taxFor, gstOn } from "../lib/tax.js";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase.js";
@@ -113,11 +114,11 @@ export function FeesEditor({ projectId }) {
                   <option value="one-time">One-time</option><option value="monthly">Monthly</option><option value="hourly">Hourly</option>
                 </select>
               </F>
-              <F label="Standard price (₹, ex-GST, private)"><input id="fee-list" type="number" min="0" value={edit.list_price ?? ""} onChange={(e) => setEdit({ ...edit, list_price: e.target.value })} className={input} style={fs} /></F>
+              <F label="Standard price (₹, private)"><input id="fee-list" type="number" min="0" value={edit.list_price ?? ""} onChange={(e) => setEdit({ ...edit, list_price: e.target.value })} className={input} style={fs} /></F>
               <F label="Discount % (private)">
                 <input id="fee-pct" type="number" min="0" max="100" value={edit.list_price ? Math.round((d / Number(edit.list_price)) * 100) : 0} onChange={(e) => setPct(e.target.value)} className={input} style={fs} />
               </F>
-              <F label="Client's fee (₹, ex-GST)"><input id="fee-price" type="number" min="0" required value={edit.price ?? ""} onChange={(e) => setEdit({ ...edit, price: e.target.value })} className={input} style={fs} /></F>
+              <F label="Client's fee (₹)"><input id="fee-price" type="number" min="0" required value={edit.price ?? ""} onChange={(e) => setEdit({ ...edit, price: e.target.value })} className={input} style={fs} /></F>
               <F label="Why the discount (private note)" wide>
                 <input id="fee-reason" value={edit.discount_note || ""} onChange={(e) => setEdit({ ...edit, discount_note: e.target.value })} placeholder="e.g. First client, referred; long-term work" className={input} style={fs} />
               </F>
@@ -180,7 +181,7 @@ export function FeesEditor({ projectId }) {
 }
 
 /* ───────── client: their fees, approve or propose ───────── */
-function FeeRow({ r, onSaved }) {
+function FeeRow({ r, onSaved, tax }) {
   const [mode, setMode] = useState(null); // "offer"
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -193,10 +194,10 @@ function FeeRow({ r, onSaved }) {
     setMode(null); setAmount(""); setNote(""); onSaved();
   };
   return (
-    <div className="p-4 mb-3" style={{ background: C.card, border: `1px solid ${C.rule}`, borderLeft: `4px solid ${r.client_response === "approved" ? C.good : r.client_response === "offer" ? C.warn : C.info}`, borderRadius: 3 }}>
+    <div id={`item-${r.id}`} className="p-4 mb-3" style={{ background: C.card, border: `1px solid ${C.rule}`, borderLeft: `4px solid ${r.client_response === "approved" ? C.good : r.client_response === "offer" ? C.warn : C.info}`, borderRadius: 3 }}>
       <div className="flex flex-wrap items-baseline gap-2">
         <span className="font-semibold flex-1" style={{ minWidth: 0 }}>{r.name}</span>
-        <span className="font-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>{inr(r.price)} <span className="text-xs" style={{ color: C.mute }}>{per(r.kind)}, ex-GST</span></span>
+        <span className="font-semibold" style={{ fontVariantNumeric: "tabular-nums" }}>{inr(r.price)} <span className="text-xs" style={{ color: C.mute }}>{per(r.kind)} · {tax.label}{tax.applies ? ` (${inr(Number(r.price) + gstOn(r.price, tax))} in all)` : ""}</span></span>
       </div>
       <div className="text-xs mb-2" style={{ color: C.mute }}>{r.status}{r.note ? ` · ${r.note}` : ""}</div>
       {r.client_response === "approved" && <div className="text-sm mb-2"><Chip tone="good">You approved</Chip> <span className="text-xs" style={{ color: C.mute }}>{fmtDateTime(r.client_response_at)}</span></div>}
@@ -209,7 +210,7 @@ function FeeRow({ r, onSaved }) {
       )}
       {mode && (
         <div className="mt-2 grid gap-2 md:grid-cols-3 items-end">
-          <label htmlFor={`offer-${r.id}`} className="block text-xs" style={{ color: C.mute }}>Your price (₹, ex-GST) {per(r.kind)}
+          <label htmlFor={`offer-${r.id}`} className="block text-xs" style={{ color: C.mute }}>Your price (₹) {per(r.kind)}{tax.applies ? `, before ${tax.rate}% GST` : ""}
             <input id={`offer-${r.id}`} type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} className={input} style={fs} />
           </label>
           <label htmlFor={`onote-${r.id}`} className="block text-xs md:col-span-2" style={{ color: C.mute }}>Note (optional)
@@ -249,23 +250,39 @@ function FeeTiles({ rows }) {
   );
 }
 
-export function FeesClient({ projectId, banner = null }) {
+export function FeesClient({ projectId, project = null, banner = null }) {
+  const business = useBusiness();
+  const tax = taxFor(business, project);
+  const [busy, setBusy] = useState(false);
   const fees = useRows(() => supabase.from("project_services").select("*").eq("project_id", projectId).eq("client_visible", true).order("created_at"), [projectId]);
   const cat = useRows(() => supabase.from("services").select("id,why,includes"), []);
   const [open, setOpen] = useState(null);
   const rows = fees.rows || [];
   const svc = (k) => (cat.rows || []).find((c) => c.id === k);
-  const waiting = rows.filter((r) => !r.client_response && !OFF.includes(r.status)).length;
+  const pending = rows.filter((r) => !r.client_response && !OFF.includes(r.status));
+  const waiting = pending.length;
+  // One answer for everything: "Yes, this is OK"
+  const approveAll = async () => {
+    setBusy(true);
+    for (const r of pending) await supabase.rpc("respond_fee", { service: r.id, choice: "approved", amount: null, note: null });
+    setBusy(false); fees.reload();
+  };
+  const sumOf = (k) => pending.filter((r) => (k === "monthly" ? r.kind === "monthly" : r.kind !== "monthly")).reduce((a, r) => a + Number(r.price), 0);
   return (
     <div>
       <H2>Your payments</H2>
       <FeeTiles rows={rows} />
-      <P style={{ color: C.mute, marginTop: -8 }}>All fees exclude GST.</P>
+      <P style={{ color: C.mute, marginTop: -8 }}>{tax.applies ? `GST at ${tax.rate}% is added to each fee${business?.gstin ? ` (GSTIN ${business.gstin})` : ""}.` : "No GST is charged: you pay these fees directly."}</P>
       {banner}
       <H2>Your fees</H2>
       <P>Approve each fee, or suggest your own price and Ajay will reply. Every answer is saved with its date and time.</P>
-      {waiting > 0 && <Box tone="warn" title={`${waiting} fee${waiting > 1 ? "s" : ""} waiting for your answer`}>Approve, or suggest your price, below.</Box>}
-      {rows.map((r) => <FeeRow key={r.id + (r.client_response_at || "") + r.price} r={r} onSaved={fees.reload} />)}
+      {waiting > 0 && (
+        <Box tone="warn" title={`Is this OK? ${waiting} fee${waiting > 1 ? "s" : ""} waiting for your answer`}>
+          <div className="mb-2">{[sumOf("monthly") && `${inr(sumOf("monthly"))} a month`, sumOf("once") && `${inr(sumOf("once"))} one-time`].filter(Boolean).join(" and ")}{tax.applies ? `, ${tax.label}` : ", no GST"}. Approve them all in one go, or answer each fee below (approve, or suggest your own price).</div>
+          <button disabled={busy} onClick={approveAll} className="px-4 py-1.5 rounded text-sm font-semibold" style={{ border: `1px solid ${C.good}`, background: C.goodBg, color: C.good }}>{busy ? "Saving…" : `Yes, this is OK: approve all ${waiting}`}</button>
+        </Box>
+      )}
+      {rows.map((r) => <FeeRow key={r.id + (r.client_response_at || "") + r.price} r={r} onSaved={fees.reload} tax={tax} />)}
       {rows.some((r) => svc(r.service_key)?.why) && <H2>What each service covers</H2>}
       {rows.map((r) => {
         const s = svc(r.service_key);

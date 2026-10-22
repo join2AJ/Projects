@@ -182,7 +182,7 @@ function ServicesFor({ user, projects, services }) {
   const once = mine.filter((s) => s.kind === "one-time" && s.status !== "Declined").reduce((a, s) => a + Number(s.price), 0);
   return (
     <div>
-      <T head={["Service", "Project", "Billing", "Fee (ex-GST)", "Status"]} right={[3]} rows={mine.map((s) => [
+      <T head={["Service", "Project", "Billing", "Fee", "Status"]} right={[3]} rows={mine.map((s) => [
         s.name, <Link key="p" to={`/studio/p/${pname[s.project_id]?.slug}`} className="underline" style={{ color: C.deep }}>{pname[s.project_id]?.name}</Link>,
         s.kind, inr(s.price), s.status,
       ])} />

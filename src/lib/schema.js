@@ -56,7 +56,7 @@ export const FIELDS = {
   invoices: [
     { key: "number", label: "Number", required: true },
     { key: "description", label: "For" },
-    { key: "amount", label: "Amount ex-GST (₹)", type: "number", money: true, required: true },
+    { key: "amount", label: "Amount (₹)", type: "number", money: true, required: true },
     { key: "status", label: "Status", type: "select", required: true, options: ["draft", "sent", "paid", "void"] },
     { key: "due_on", label: "Due", type: "date", required: true },
     { key: "issued_on", label: "Issued", type: "date", required: true, hidden: true },
@@ -96,7 +96,7 @@ export const FIELDS = {
     { key: "service_key", label: "Service", type: "select", required: true, options: [...Object.entries(SERVICES).map(([k, s]) => [k, s.name]), ["custom", "Custom"]] },
     { key: "name", label: "Name shown to client", required: true },
     { key: "kind", label: "Billing", type: "select", required: true, options: ["one-time", "monthly", "hourly"] },
-    { key: "price", label: "Agreed fee ex-GST (₹)", type: "number", money: true, required: true },
+    { key: "price", label: "Agreed fee (₹)", type: "number", money: true, required: true },
     { key: "status", label: "Status", type: "select", required: true, options: ["Proposed", "Agreed", "In progress", "Live", "Done", "Paused", "Stopped", "Declined"] },
     { key: "start_on", label: "Start", type: "date", hidden: true },
     { key: "end_on", label: "End", type: "date", hidden: true },

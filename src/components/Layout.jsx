@@ -5,9 +5,10 @@ import { STUDIO } from "../data/studio.js";
 import { useAuth, emailToLogin, signOut } from "../lib/auth.jsx";
 import { ConsentGate } from "./collab.jsx";
 import { track } from "../lib/track.js";
+import { useBusiness } from "../lib/tax.js";
 
 // A link, or [label, [links…]] for a menu. Account sits in the signed-in bar; Security is in the admin footer.
-const ADMIN = [["/studio", "Dashboard"], ["/studio/users", "People & clinics"], ["Business", [["/studio/pricing", "Price list"], ["/studio/compare", "Compare"], ["/studio/overheads", "Overheads"], ["/studio/activity", "All activity"]]]];
+const ADMIN = [["/studio", "Dashboard"], ["/studio/users", "People & clinics"], ["Business", [["/studio/pricing", "Price list"], ["/studio/compare", "Compare"], ["/studio/overheads", "Overheads"], ["/studio/tax", "Business & tax details"], ["/studio/activity", "All activity"]]]];
 const CLIENT = [["/portal", "My project"], ["Help", [["/process", "How we work"], ["/services", "Services"], ["/security", "Security"], ["/privacy", "Privacy notice"]]]];
 
 function Menu({ label, items, path }) {
@@ -28,10 +29,12 @@ function Menu({ label, items, path }) {
   );
 }
 
+
 export default function Layout() {
   const { session, profile } = useAuth();
   const links = !session || !profile ? [] : profile.is_owner ? ADMIN : CLIENT;
   const path = useLocation().pathname;
+  const business = useBusiness(session?.user.id || null);
   const open = ["/login", "/privacy"].includes(path);
   // Client page views (project sections are recorded by the project page itself)
   useEffect(() => { if (profile && !profile.is_owner && !path.startsWith("/portal/p/")) track(path); }, [path, profile]);
@@ -62,7 +65,7 @@ export default function Layout() {
         {open || !session || !profile ? <Outlet /> : <ConsentGate><Outlet /></ConsentGate>}
       </main>
       <footer className="max-w-5xl mx-auto px-4 pb-8 text-xs" style={{ color: C.mute }}>
-        {STUDIO.name} · {STUDIO.email} · {STUDIO.gstNote} · <Link to="/privacy" className="underline">Privacy notice</Link>{profile?.is_owner && <> · <Link to="/security" className="underline">Security</Link></>}
+        {business?.company_name || STUDIO.name} · {STUDIO.email} · {business?.gstin ? `GSTIN ${business.gstin}` : "Not GST-registered: no GST is charged"} · <Link to="/privacy" className="underline">Privacy notice</Link>{profile?.is_owner && <> · <Link to="/security" className="underline">Security</Link></>}
       </footer>
     </div>
   );

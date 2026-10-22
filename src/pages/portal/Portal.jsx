@@ -127,7 +127,7 @@ function ClientProject({ p, role, visible, since, tab, setTab, name, preview = f
     ["progress", "Progress", [["updates", "Updates"], ...(show("issues") ? [["issues", "Issues"]] : [])]],
     ["results", "Results", [["numbers", "Current results"], ...(show("report") || p.report_key ? [["report", "Previous reports & analysis"]] : [])]],
     ["requests", withBadge("Requests & files", c.requests), [["requests", withBadge("Requests", c.requests)], ["files", "Files"]]],
-    ["money", "Money", [["money", "Money"]]],
+    ["money", withBadge("Money", c.money), [["money", withBadge("Money", c.money)]]],
   ];
   const tabs = flatTabs(groups);
   const known = tabs.some(([id]) => id === tab) || tab === "index";
@@ -147,11 +147,15 @@ function ClientProject({ p, role, visible, since, tab, setTab, name, preview = f
       {t === "monthly" && <Cycles projectId={p.id} role={role} />}
       {t === "updates" && <ClientUpdates p={p} go={go} />}
       {t === "issues" && <IssuesList projectId={p.id} />}
-      {t === "money" && (p.money_open ? <MoneyClient projectId={p.id} /> : (
+      {t === "money" && (p.money_open ? <MoneyClient projectId={p.id} project={p} /> : (<>
         <Box tone="info" title="Coming soon">
           Your fees and payments will appear here once we have agreed the scope together. Nothing is charged until then.
         </Box>
-      ))}
+        {preview && (<>
+          <Box tone="warn" title="Only you see this part">Fees are hidden from the client. When you press “Show fees to the client” on the project’s Overview, this is what they get, with a count on Home and on Money until they answer.</Box>
+          <MoneyClient projectId={p.id} project={p} />
+        </>)}
+      </>))}
       {t === "files" && <FilesPanel projectId={p.id} />}
       {t === "requests" && (role === "viewer" ? <ReadOnlyNote what="send requests" /> : null)}
       {t === "requests" && <RequestThreads projectId={p.id} readOnly={role === "viewer"} />}
