@@ -296,9 +296,10 @@ function Campaign({ c, days, admin, onChange }) {
             </table>
           </div>
         )}
-        {extraKeys.length > 0 && (
+        {/* Admin only: the client sees the main figures, not each extra */}
+        {admin && extraKeys.length > 0 && (
           <div className="overflow-x-auto mt-3">
-            <div className="text-xs font-semibold mb-1" style={{ color: C.ink }}>Extras shown with the ad, by day</div>
+            <div className="text-xs font-semibold mb-1" style={{ color: C.ink }}>Extras shown with the ad, by day <span className="font-normal" style={{ color: C.mute }}>(only you see this)</span></div>
             <table className="w-full text-sm" style={{ borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" }} aria-label={`Extras by day: ${c.name}`}>
               <thead><tr>{["Day", ...extraKeys].map((h, i) => <th key={h} className="py-1.5 pr-3 font-semibold" style={{ borderBottom: `2px solid ${C.deep}`, color: C.deep, textAlign: i ? "right" : "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
               <tbody>
