@@ -28,6 +28,7 @@ import { Deliverables, Cycles, ClientHome, useNeedsYou, HealthChip, useHealth } 
 import { useAuth } from "../../lib/auth.jsx";
 import { useMyRole } from "../portal/Portal.jsx";
 import { ByService, useServices, serviceField } from "../../components/services.jsx";
+import { Campaigns } from "../../components/campaigns.jsx";
 
 const field = "mt-1 w-full px-2 py-1.5 rounded text-sm";
 const fs = { border: `1px solid ${C.rule}`, background: "#fff" };
@@ -410,6 +411,8 @@ export default function StudioProject() {
       {cur === "seen" && <ClientActivity projectId={id} />}
 
       {cur === "numbers" && (<>
+        <Campaigns projectId={id} admin />
+        <H2>Monthly figures</H2>
         <MetricsImport projectId={id} onDone={() => setBump(bump + 1)} />
         <MetricsPanel key={`c${bump}`} projectId={id} from={since} empty={`No figures since ${fmtDate(since)} yet. Add this month’s numbers above; older figures are under Previous reports & analysis.`} />
         <Editor key={`e${bump}`} title="All values" table="metrics" projectId={id} fields={FIELDS.metrics} order={["period", false]}

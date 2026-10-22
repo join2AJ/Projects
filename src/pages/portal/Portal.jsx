@@ -12,6 +12,7 @@ import { MeetingNotes } from "../../components/meetings.jsx";
 import { PromotionPlan } from "../../components/promotion.jsx";
 import { TabIndex } from "../../components/tabindex.jsx";
 import { NavTabs, flatTabs } from "../../components/navtabs.jsx";
+import { Campaigns } from "../../components/campaigns.jsx";
 import { useNeedsYou, ClientHome, Deliverables, Cycles, useFocusItem } from "../../components/workflow.jsx";
 import { track } from "../../lib/track.js";
 
@@ -159,7 +160,10 @@ function ClientProject({ p, role, visible, since, tab, setTab, name, preview = f
       {t === "files" && <FilesPanel projectId={p.id} />}
       {t === "requests" && (role === "viewer" ? <ReadOnlyNote what="send requests" /> : null)}
       {t === "requests" && <RequestThreads projectId={p.id} readOnly={role === "viewer"} />}
-      {t === "numbers" && <MetricsPanel projectId={p.id} from={since} empty="Figures for the new campaign will appear here after the first weekly review." />}
+      {t === "numbers" && (<>
+        <Campaigns projectId={p.id} />
+        <MetricsPanel projectId={p.id} from={since} empty="Figures for the new campaign will appear here after the first weekly review." />
+      </>)}
       {t === "report" && (<>
         <P>Earlier results and our analysis of them. Current results are on the Current results tab.</P>
         <H2>Figures before {new Date(since).toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</H2>
