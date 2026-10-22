@@ -12,6 +12,7 @@ const ADMIN = {
   promotion: "Every promotion channel and strategy, with status, budget against the client’s limit, and how it is measured.",
   decisions: "Yes / No / Other questions for the client; close each one with the final decision.",
   updates: "Work updates and the weekly Tuesday update; approve before the client sees them. Skip or move updates here. “Work done” lists every audit and report.",
+  byservice: "Every point (updates, issues, decisions, meeting points, requests…) under the service it belongs to; link or move points here.",
   deliverables: "Pieces of work the client signs off (Approve / Ask for changes). Send when ready; the approver’s answer is kept.",
   cycles: "One row per month for monthly services: plan, work, report sent, client approval.",
   preview: "The client’s Home exactly as their approver sees it, including what needs them.",

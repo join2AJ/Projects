@@ -173,10 +173,11 @@ export function RequestThreads({ projectId, admin = false, readOnly = false }) {
   const { rows, reload } = useRows(() => supabase.from("requests").select("*").eq("project_id", projectId).order("created_at", { ascending: false }), [projectId]);
   const drafts = useRows(() => (admin ? supabase.from("reply_drafts").select("*") : Promise.resolve({ data: [] })), [admin]);
   const [state, setState] = useState(null);
+  const svc = useRows(() => (admin ? Promise.resolve({ data: [] }) : supabase.from("project_services").select("id,name").eq("project_id", projectId).eq("client_visible", true).not("status", "in", "(Stopped,Declined)").order("created_at")), [projectId, admin]);
   const send = async (e) => {
     e.preventDefault();
     const d = Object.fromEntries(new FormData(e.target));
-    const { error } = await supabase.from("requests").insert({ project_id: projectId, type: d.type, priority: d.priority, details: d.details, link: d.link || null });
+    const { error } = await supabase.from("requests").insert({ project_id: projectId, type: d.type, priority: d.priority, details: d.details, link: d.link || null, service_id: d.service_id || null });
     if (error) return setState(["bad", error.message]);
     e.target.reset(); setState(["good", "Sent. You can follow the replies below."]); reload();
   };
@@ -193,6 +194,14 @@ export function RequestThreads({ projectId, admin = false, readOnly = false }) {
               <select id="rq-priority" name="priority" defaultValue="This week" className={input} style={fs}>{["Urgent: today", "This week", "This month", "Whenever"].map((o) => <option key={o}>{o}</option>)}</select>
             </label>
           </div>
+          {(svc.rows || []).length > 0 && (
+            <label htmlFor="rq-service" className="block text-xs mb-3" style={{ color: C.mute }}>Which service is it about?
+              <select id="rq-service" name="service_id" defaultValue="" className={input} style={fs}>
+                <option value="">Not sure / something else</option>
+                {svc.rows.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+              </select>
+            </label>
+          )}
           <label htmlFor="rq-details" className="block text-xs mb-3" style={{ color: C.mute }}>What would you like?
             <textarea id="rq-details" name="details" required rows={3} maxLength={5000} className={input} style={fs} />
           </label>

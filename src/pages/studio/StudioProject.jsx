@@ -27,6 +27,7 @@ import { WEEKLY, answerBy } from "../../data/studio.js";
 import { Deliverables, Cycles, ClientHome, useNeedsYou, HealthChip, useHealth } from "../../components/workflow.jsx";
 import { useAuth } from "../../lib/auth.jsx";
 import { useMyRole } from "../portal/Portal.jsx";
+import { ByService, useServices, serviceField } from "../../components/services.jsx";
 
 const field = "mt-1 w-full px-2 py-1.5 rounded text-sm";
 const fs = { border: `1px solid ${C.rule}`, background: "#fff" };
@@ -35,7 +36,7 @@ const col = (table, key, label) => { const f = FIELDS[table].find((x) => x.key =
 /* ───────── project details ───────── */
 const L = ({ label, children, wide }) => <label className={`block text-xs mb-3 ${wide ? "md:col-span-2" : ""}`} style={{ color: C.mute }}>{label}{children}</label>;
 export function ProjectForm({ initial, onSaved }) {
-  const clients = useRows(() => supabase.from("clients").select("id,name,org").order("name"), []);
+  const clients = useRows(() => supabase.from("clients").select("id,code,name,org").order("name"), []);
   const [p, setP] = useState(initial);
   const [newClient, setNewClient] = useState({ name: "", org: "", email: "", phone: "" });
   const [msg, setMsg] = useState(null);
@@ -68,10 +69,10 @@ export function ProjectForm({ initial, onSaved }) {
         <L label="Project name"><input required value={p.name || ""} onChange={(e) => setP({ ...p, name: e.target.value, slug: p.id ? p.slug : e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") })} className={field} style={fs} /></L>
         <L label="Project code (e.g. TBT-2610; leave empty to make one)"><input pattern="[A-Za-z0-9]{2,6}-[0-9]{4}[A-Za-z]?" value={p.code || ""} onChange={set("code")} className={field} style={fs} /></L>
         <L label="Link name (client URL: /portal/p/…)"><input required pattern="[a-z0-9\-]+" value={p.slug || ""} onChange={set("slug")} className={field} style={fs} /></L>
-        <L label="Client">
+        <L label="Clinic">
           <select value={p.client_id || ""} onChange={set("client_id")} className={field} style={fs}>
             <option value="">—</option>
-            {(clients.rows || []).map((c) => <option key={c.id} value={c.id}>{c.name}{c.org ? `, ${c.org}` : ""}</option>)}
+            {(clients.rows || []).map((c) => <option key={c.id} value={c.id}>{c.code ? `${c.code} · ` : ""}{c.name}{c.org ? `, ${c.org}` : ""}</option>)}
             <option value="new">+ New client…</option>
           </select>
         </L>
@@ -285,6 +286,8 @@ export default function StudioProject() {
   const numbers = useRows(() => owner ? supabase.from("invoices").select("number") : Promise.resolve({ data: [] }), [bump, tab, owner]);
   const chg = useRows(loadChanges, [bump]);
   const myRole = useMyRole(owner ? null : rows?.[0]?.id);
+  const services = useServices(rows?.[0]?.id);
+  const withSvc = (t) => [...FIELDS[t], serviceField(services)];
   if (error) return <Box tone="bad" title="Could not load">{error.message}</Box>;
   if (!rows) return <P>Loading…</P>;
   const p = rows[0];
@@ -302,7 +305,7 @@ export default function StudioProject() {
   const TEAM_HIDDEN = ["money", "time", "logins", "seen", "activity", "preview", "shared"];
   const all = [
     ["plan", "Plan", [["overview", "Overview"], ["promotion", "Promotion plan"], ["meetings", "Meetings"], ["decisions", "Decisions"], ["cycles", "Monthly cycles"], ["gantt", "Timeline chart"]]],
-    ["work", "Work", [["updates", "Updates"], ["deliverables", "Deliverables & sign-off"], ["issues", "Issues"], ["requests", "Requests"], ["files", "Files"]]],
+    ["work", "Work", [["byservice", "By service"], ["updates", "Updates"], ["deliverables", "Deliverables & sign-off"], ["issues", "Issues"], ["requests", "Requests"], ["files", "Files"]]],
     ["results", "Results", [["numbers", "Current results"], ["report", "Previous reports & analysis"]]],
     ["money", "Money", [["money", "Money"], ["time", "Time"]]],
     ["client", "Client", [["preview", "Client’s home (preview)"], ["seen", "What the client views"], ["shared", "Shared vs private"], ["activity", "Activity"], ["logins", "Tools and logins"]]],
@@ -325,6 +328,7 @@ export default function StudioProject() {
         <H1>{p.name}</H1>
         <span className="text-sm font-mono px-2 py-0.5 rounded" style={{ background: C.bg, border: `1px solid ${C.rule}`, color: C.deep }} title="Project code">{p.code}</span>
         <ProjectHealth projectId={id} />
+        {owner && <Link to={`/portal/p/${p.slug}`} className="ml-auto px-3 py-1 rounded text-sm font-semibold" style={{ border: `1px solid ${C.deep}`, color: C.deep }}>Open client view</Link>}
       </div>
       <NavTabs label="Project sections" groups={groups} value={cur} onChange={setTab}
         extra={<button onClick={() => setTab("index")} className="px-3 py-3 text-sm" style={{ color: cur === "index" ? C.deep : C.mute, fontWeight: cur === "index" ? 700 : 400 }} aria-label="Help: what each section is for">? Help</button>} />
@@ -340,7 +344,7 @@ export default function StudioProject() {
       {cur === "decisions" && (<>
         <P>Questions for the client to answer Yes, No or Other. Drafts stay private until you press <b>Send</b>. After the update, Edit an item, set Status to Closed and write the final decision.</P>
         <DecisionsSummary projectId={id} projectName={p.name} bump={bump} />
-        <Editor table="decisions" onChange={() => setBump((b) => b + 1)} projectId={id} fields={FIELDS.decisions} order={["sort", true]}
+        <Editor table="decisions" onChange={() => setBump((b) => b + 1)} projectId={id} fields={withSvc("decisions")} order={["sort", true]}
           defaults={{ ...defaultsFor("decisions"), meeting_on: nextDay, due_on: answerBy(nextDay), status: "open", sort: 100 }}
           columns={[["#", (r) => r.sort], ["Update", (r) => fmtDate(r.meeting_on)], ["Question", (r) => r.question],
             ["Sent", (r) => (r.client_visible ? <Chip key="s" tone="good">Sent</Chip> : <Chip key="d" tone="info">Draft</Chip>)],
@@ -356,7 +360,7 @@ export default function StudioProject() {
       {cur === "updates" && view === "done" && <WorkLog projectId={id} reportKey={p.report_key} admin onOpenReport={() => setTab("report")} />}
       {cur === "updates" && view === "all" && owner && <WeeklyButton project={p} bump={bump} onDone={() => setBump((b) => b + 1)} />}
       {cur === "updates" && view === "all" && owner && <ScheduleEditor projectId={id} onChange={() => setBump((b) => b + 1)} />}
-      {cur === "updates" && view === "all" && <Editor key={`u${bump}`} table="updates" projectId={id} fields={FIELDS.updates} order={["happened_on", false]}
+      {cur === "updates" && view === "all" && <Editor key={`u${bump}`} table="updates" projectId={id} fields={withSvc("updates")} order={["happened_on", false]}
         defaults={{ ...defaultsFor("updates"), happened_on: today(), kind: "work", status: "Done" }}
         columns={[col("updates", "happened_on"), ["Type", (r) => KIND_LABEL[r.kind] || r.kind], col("updates", "title"), col("updates", "status"),
           ["Client", (r) => (!r.client_visible ? <Chip key="p" tone="warn">Waiting for approval</Chip>
@@ -365,7 +369,7 @@ export default function StudioProject() {
         extra={owner ? (r, reload) => <Approve row={r} reload={reload} /> : undefined} />}
       {cur === "updates" && view === "all" && <P style={{ color: C.mute }}>New updates stay private until you approve them. Approved updates show on the client’s page straight away.</P>}
 
-      {cur === "issues" && <Editor table="issues" projectId={id} fields={FIELDS.issues} order={["sort", true]}
+      {cur === "issues" && <Editor table="issues" projectId={id} fields={withSvc("issues")} order={["sort", true]}
         defaults={{ ...defaultsFor("issues"), severity: "medium", status: "open", owner: "me", raised_on: today(), sort: 100 }}
         columns={[["Severity", (r) => <Tag key="s" v={r.severity} />], col("issues", "title"), ["Status", (r) => <Tag key="t" v={r.status} />], col("issues", "owner")]} />}
 
@@ -416,6 +420,7 @@ export default function StudioProject() {
 
       {cur === "activity" && <AuditTrail projectId={id} />}
       {cur === "preview" && <ClientPreview p={p} since={since} />}
+      {cur === "byservice" && <ByService projectId={id} />}
       {cur === "deliverables" && <Deliverables projectId={id} admin />}
       {cur === "cycles" && <Cycles projectId={id} admin />}
     </div>

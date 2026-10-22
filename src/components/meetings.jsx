@@ -197,8 +197,8 @@ function Meeting({ m, items, admin, onChange, onEdit, show = "", canMark = false
 }
 
 export function MeetingNotes({ projectId, admin = false, canMark = false, onMarked }) {
-  const meetings = useRows(() => supabase.from("meetings").select("*").eq("project_id", projectId).order("held_on", { ascending: false }).order("created_at", { ascending: false }), [projectId]);
-  const items = useRows(() => supabase.from("meeting_items").select("*").eq("project_id", projectId), [projectId]);
+  const meetings = useRows(() => (admin ? (q) => q : (q) => q.eq("client_visible", true))(supabase.from("meetings").select("*").eq("project_id", projectId)).order("held_on", { ascending: false }).order("created_at", { ascending: false }), [projectId]);
+  const items = useRows(() => { const q = supabase.from("meeting_items").select("*").eq("project_id", projectId); return admin ? q : q.eq("client_visible", true); }, [projectId, admin]);
   const [edit, setEdit] = useState(null);
   const [show, setShow] = useState("");
   const reload = () => { meetings.reload(); items.reload(); };

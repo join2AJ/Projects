@@ -78,25 +78,37 @@ const withBadge = (label, n) => (n ? <span>{label}<Badge n={n} /></span> : label
 export function PortalProject() {
   const { slug } = useParams();
   const { profile } = useAuth();
-  const { rows, error } = useRows(() => supabase.from("projects").select("*").eq("slug", slug), [slug]);
+  const { rows, error } = useRows(() => supabase.from("projects").select("*, clients(name)").eq("slug", slug), [slug]);
   const [params, setParams] = useSearchParams();
   const tab = params.get("tab") || "home";
   const setTab = (t, item) => setParams(t === "home" && !item ? {} : item ? { tab: t, item } : { tab: t });
   const p0 = rows?.[0];
-  const role = useMyRole(p0?.id);
+  const owner = !!profile?.is_owner;
+  // The admin sees the page exactly as the approver does, with every action switched off
+  const myRole = useMyRole(owner ? null : p0?.id);
+  const role = owner ? (p0 ? "approver" : null) : myRole;
   const since = ((p0?.started_on) || new Date().toISOString()).slice(0, 8) + "01";
   const visible = useVisible(p0 || { id: null }, since);
-  useEffect(() => { if (p0) track(`/portal/p/${p0.slug}`, p0.id, tab); }, [p0?.id, tab]);
+  useEffect(() => { if (p0 && !owner) track(`/portal/p/${p0.slug}`, p0.id, tab); }, [p0?.id, tab]);
   if (error) return <Box tone="bad" title="Could not load">{error.message}</Box>;
   if (!rows) return <P>Loading…</P>;
   const p = rows[0];
   if (!p) return <Box tone="warn" title="Project not found">This project is not shared with your login. <Link to="/portal" className="underline">Your projects</Link></Box>;
   if (!role) return <P>Loading…</P>;
   if (role === "team") return <Navigate to={`/studio/p/${p.slug}`} replace />;
-  return <ClientProject p={p} role={role} visible={visible} since={since} tab={tab} setTab={setTab} name={profile?.full_name} />;
+  const view = <ClientProject p={p} role={role} visible={visible} since={since} tab={tab} setTab={setTab} name={owner ? p.clients?.name : profile?.full_name} preview={owner} />;
+  return owner ? (
+    <div>
+      <div className="mb-4 px-3 py-2 rounded text-sm flex flex-wrap justify-between gap-2" role="status" style={{ background: C.deep, color: "#fff" }}>
+        <span>Signed in as <b>admin</b>, viewing <b>{p.clients?.name || "the client"}</b>’s page exactly as they see it. Buttons are switched off here.</span>
+        <Link to={`/studio/p/${p.slug}`} className="underline" style={{ color: "#fff" }}>Back to the project</Link>
+      </div>
+      {view}
+    </div>
+  ) : view;
 }
 
-function ClientProject({ p, role, visible, since, tab, setTab, name }) {
+function ClientProject({ p, role, visible, since, tab, setTab, name, preview = false }) {
   const needs = useNeedsYou(p, role);
   useFocusItem();
   if (!visible) return <P>Loading…</P>;
@@ -125,6 +137,7 @@ function ClientProject({ p, role, visible, since, tab, setTab, name }) {
     <div>
       <NavTabs label="Project sections" groups={groups} value={t} onChange={(k) => setTab(k)}
         extra={<button onClick={() => setTab("index")} className="px-3 py-3 text-sm" style={{ color: C.mute }} aria-label="Help: what each section is for">? Help</button>} />
+      <fieldset disabled={preview} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }} className={preview ? "preview" : ""}>
       {t === "home" && <ClientHome p={p} role={role} needs={needs} go={go} since={since} name={name} />}
       {t === "index" && <TabIndex tabs={tabs.map(([k, l]) => [k, typeof l === "string" ? l : k])} slug={p.slug} />}
       {t === "promotion" && <PromotionPlan projectId={p.id} />}
@@ -149,6 +162,7 @@ function ClientProject({ p, role, visible, since, tab, setTab, name }) {
         <MetricsPanel projectId={p.id} before={since} empty="No earlier figures." />
         {p.report_key && REPORTS[p.report_key] && <><H2>{REPORTS[p.report_key].label}</H2><ReportPanel reportKey={p.report_key} /></>}
       </>)}
+      </fieldset>
     </div>
   );
 }

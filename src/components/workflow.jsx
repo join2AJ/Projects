@@ -3,7 +3,7 @@
  * the project health flag, and the client's Home page ("Needs you", "This week", "Results").
  */
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase.js";
 import { useRows } from "../lib/useRows.js";
 import { fmtDate, fmtDateTime, today } from "../lib/money.js";
@@ -162,7 +162,7 @@ function Deliverable({ d, admin, role, onChange }) {
 }
 
 export function Deliverables({ projectId, admin = false, role = null }) {
-  const { rows, reload } = useRows(() => supabase.from("deliverables").select("*").eq("project_id", projectId).order("sort").order("created_at"), [projectId]);
+  const { rows, reload } = useRows(() => (admin ? (q) => q : (q) => q.eq("client_visible", true))(supabase.from("deliverables").select("*").eq("project_id", projectId)).order("sort").order("created_at"), [projectId]);
   const [adding, setAdding] = useState(false);
   useFocusItem();
   if (!rows) return <P>Loading…</P>;
@@ -250,7 +250,7 @@ function Cycle({ c, admin, role, onChange }) {
 }
 
 export function Cycles({ projectId, admin = false, role = null }) {
-  const { rows, reload } = useRows(() => supabase.from("cycles").select("*").eq("project_id", projectId).order("month", { ascending: false }), [projectId]);
+  const { rows, reload } = useRows(() => (admin ? (q) => q : (q) => q.eq("client_visible", true))(supabase.from("cycles").select("*").eq("project_id", projectId)).order("month", { ascending: false }), [projectId, admin]);
   const [msg, setMsg] = useState(null);
   useFocusItem();
   const add = async () => {
@@ -307,8 +307,8 @@ export function ClientHome({ p, role, needs, go, since, name }) {
   const done = async (id) => { setBusy(id); await supabase.rpc("client_item_done", { item: id, done: true }); setBusy(null); needs.reload(); };
   const n = needs.items.length;
   const next = chg.rows ? nextUpdate(chg.rows, p.id) : null;
-  // Results: the latest value of up to three figures, with the change on the period before
-  const byMetric = new Map(); (mets.rows || []).forEach((m) => byMetric.set(m.metric, [...(byMetric.get(m.metric) || []), m]));
+  // Results: the new Search campaign only (old PMax and video figures would distract); the latest value of up to three figures, with the change on the period before
+  const byMetric = new Map(); (mets.rows || []).filter((m) => /search/i.test(m.metric)).forEach((m) => byMetric.set(m.metric, [...(byMetric.get(m.metric) || []), m]));
   const results = [...byMetric].slice(0, 3).map(([m, list]) => { const a = list.at(-1), b = list.at(-2); return { m, v: Number(a.value), unit: a.unit, d: b ? Number(a.value) - Number(b.value) : null, p: a.period }; });
   const fmtV = (r) => (r.unit === "₹" ? `₹${Math.round(r.v).toLocaleString("en-IN")}` : Math.round(r.v).toLocaleString("en-IN"));
   return (
@@ -327,10 +327,10 @@ export function ClientHome({ p, role, needs, go, since, name }) {
             {needs.items.map((i) => (
               <li key={i.tab + i.id} className="flex flex-wrap items-center gap-2 py-2" style={{ borderTop: `1px solid ${C.rule}` }}>
                 <Chip tone={i.action ? "info" : "warn"}>{i.kind}</Chip>
-                <button className="flex-1 text-left text-sm underline" style={{ minWidth: 0, color: C.ink }} onClick={() => go(i.tab, i.id)}>{i.text.length > 110 ? i.text.slice(0, 110) + "…" : i.text}</button>
+                <Link className="flex-1 text-left text-sm underline" style={{ minWidth: 0, color: C.ink }} to={`?tab=${i.tab}&item=${i.id}`}>{i.text.length > 110 ? i.text.slice(0, 110) + "…" : i.text}</Link>
                 {i.due && <span className="text-xs" style={{ color: i.due < today() ? C.bad : C.mute }}>by {fmtDate(i.due)}</span>}
                 {i.action && <button disabled={busy === i.id} onClick={() => done(i.id)} className="px-2 py-0.5 rounded text-xs font-semibold" style={{ border: `1px solid ${C.good}`, color: C.good, background: C.goodBg }}>Mark done</button>}
-                <button onClick={() => go(i.tab, i.id)} className="px-2 py-0.5 rounded text-xs font-semibold" style={btn}>Open</button>
+                <Link to={`?tab=${i.tab}&item=${i.id}`} className="px-2 py-0.5 rounded text-xs font-semibold" style={btn}>Open</Link>
               </li>
             ))}
           </ul>
@@ -338,15 +338,15 @@ export function ClientHome({ p, role, needs, go, since, name }) {
         <Card>
           <div className="font-semibold mb-1" style={{ color: C.deep }}>This week</div>
           {weekly.rows?.[0] ? (
-            <button className="text-left text-sm underline" onClick={() => go("updates", weekly.rows[0].id)}>{weekly.rows[0].title}</button>
+            <Link className="text-left text-sm underline" to={`?tab=updates&item=${weekly.rows[0].id}`}>{weekly.rows[0].title}</Link>
           ) : (latest.rows || []).slice(0, 2).map((u) => <div key={u.id} className="text-sm">{fmtDate(u.happened_on)}: {u.title}</div>)}
           <div className="text-xs mt-2" style={{ color: C.mute }}>Next update: {next ? weeklyLabel(next.at) : "Tuesday 11:00 IST"}</div>
         </Card>
       </div>
       <Card className="mt-4">
         <div className="flex items-baseline justify-between gap-2 mb-2">
-          <span className="font-semibold" style={{ color: C.deep }}>Results</span>
-          <button className="text-xs underline" style={{ color: C.deep }} onClick={() => go("numbers")}>See all results</button>
+          <span className="font-semibold" style={{ color: C.deep }}>Search campaign results</span>
+          <Link className="text-xs underline" style={{ color: C.deep }} to="?tab=numbers">See all results</Link>
         </div>
         {!results.length ? <div className="text-sm" style={{ color: C.mute }}>Results for the new campaign appear here after the first weekly review.</div> : (
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">

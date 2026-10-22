@@ -69,27 +69,39 @@ function UserForm({ user, clients, projects, onDone, onCancel }) {
   const set = (k) => (e) => setU({ ...u, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
   // Each project they can see has its own role
   const [roles, setRoles] = useState({});
+  // A login can belong to several clinics
+  const [clinicIds, setClinicIds] = useState(user.client_id ? [user.client_id] : []);
+  useEffect(() => {
+    if (!user.id) return;
+    supabase.from("profile_clients").select("client_id").eq("profile_id", user.id).then(({ data }) => data?.length && setClinicIds(data.map((r) => r.client_id)));
+  }, [user.id]);
+  const toggleClinic = (id) => setClinicIds(clinicIds.includes(id) ? clinicIds.filter((x) => x !== id) : [...clinicIds, id]);
   useEffect(() => {
     if (!user.email) return;
     supabase.from("project_members").select("project_id,role").eq("email", user.email).then(({ data }) => setRoles(Object.fromEntries((data || []).map((m) => [m.project_id, m.role]))));
   }, [user.email]);
   const toggleProject = (id) => setU({ ...u, project_ids: u.project_ids.includes(id) ? u.project_ids.filter((x) => x !== id) : [...u.project_ids, id] });
   // When a clinic is picked, offer its projects first
-  const sorted = [...projects].sort((a, b) => (b.client_id === u.client_id) - (a.client_id === u.client_id) || a.name.localeCompare(b.name));
+  const sorted = [...projects].sort((a, b) => (clinicIds.includes(b.client_id) - clinicIds.includes(a.client_id)) || a.name.localeCompare(b.name));
 
   const save = async (e) => {
     e.preventDefault();
     setBusy(true); setMsg(null);
     const body = {
       action: isNew ? "create" : "update", id: user.id,
-      full_name: u.full_name, phone: u.phone, contact_email: u.contact_email, client_id: u.client_id || null,
+      full_name: u.full_name, phone: u.phone, contact_email: u.contact_email, client_id: clinicIds[0] || null,
       notes: u.notes, status: u.status, is_owner: !!u.is_owner, project_ids: u.project_ids,
       ...(isNew ? { login: u.login } : {}), ...(u.password ? { password: u.password } : {}),
     };
     const login = isNew ? u.login.trim().toLowerCase() : user.login;
     const invite = !u.is_owner && (isNew || u.password) ? { name: u.full_name, login, password: u.password, phone: u.phone } : null;
     try {
-      await adminCall(body);
+      const out = await adminCall(body);
+      const pid = user.id || out?.id || out?.user?.id;
+      if (pid) {
+        await supabase.from("profile_clients").delete().eq("profile_id", pid).not("client_id", "in", `(${clinicIds.join(",") || "00000000-0000-0000-0000-000000000000"})`);
+        if (clinicIds.length) { const { error } = await supabase.from("profile_clients").upsert(clinicIds.map((c) => ({ profile_id: pid, client_id: c }))); if (error) throw error; }
+      }
       const email = (user.email || loginToEmail(login) || "").toLowerCase();
       for (const pid of u.is_owner ? [] : u.project_ids) {
         const { error } = await supabase.from("project_members").update({ role: roles[pid] || "approver" }).eq("project_id", pid).eq("email", email);
@@ -121,12 +133,16 @@ function UserForm({ user, clients, projects, onDone, onCancel }) {
             <option value="client">Client: sees only their projects</option><option value="admin">Admin: sees and edits everything</option>
           </select>
         </F>
-        <F label="Clinic / client">
-          <select id="u-client" value={u.client_id || ""} onChange={set("client_id")} className={input} style={fs}>
-            <option value="">—</option>
-            {clients.map((c) => <option key={c.id} value={c.id}>{c.name}{c.org ? `, ${c.org}` : ""}</option>)}
-          </select>
-        </F>
+        <fieldset className="mb-3 md:col-span-2">
+          <legend className="text-xs mb-1" style={{ color: C.mute }}>Clinics they belong to (one login can have several)</legend>
+          <div className="flex flex-wrap gap-3">
+            {clients.map((c) => (
+              <label key={c.id} className="text-sm flex items-center gap-1">
+                <input type="checkbox" checked={clinicIds.includes(c.id)} onChange={() => toggleClinic(c.id)} /> <span className="font-mono text-xs" style={{ color: C.mute }}>{c.code}</span> {c.name}{c.org ? `, ${c.org}` : ""}
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <F label="Phone"><input id="u-phone" value={u.phone || ""} onChange={set("phone")} className={input} style={fs} /></F>
         <F label="Contact email"><input id="u-email" type="email" value={u.contact_email || ""} onChange={set("contact_email")} className={input} style={fs} /></F>
         <F label="Notes (private)" wide><textarea id="u-notes" rows={2} value={u.notes || ""} onChange={set("notes")} className={input} style={fs} /></F>
@@ -184,8 +200,10 @@ function People() {
   const [confirm, setConfirm] = useState(null);
   const [note, setNote] = useState(null);
   const [invite, setInvite] = useState(null);
-  const clients = useRows(() => supabase.from("clients").select("id,name,org").order("name"), []);
+  const clients = useRows(() => supabase.from("clients").select("id,code,name,org").order("name"), []);
   const projects = useRows(() => supabase.from("projects").select("id,slug,code,name,client_id").order("name"), []);
+  const links = useRows(() => supabase.from("profile_clients").select("profile_id,client_id"), [users]);
+  const members = useRows(() => supabase.from("project_members").select("project_id,email,role"), [users]);
   const services = useRows(() => supabase.from("project_services").select("*").order("created_at"), []);
 
   const load = useCallback(async () => {
@@ -199,7 +217,12 @@ function People() {
     setConfirm(null);
   };
   const cname = useMemo(() => Object.fromEntries((clients.rows || []).map((c) => [c.id, c.name])), [clients.rows]);
-  const pname = useMemo(() => Object.fromEntries((projects.rows || []).map((p) => [p.id, p.name])), [projects.rows]);
+  const cby = useMemo(() => Object.fromEntries((clients.rows || []).map((c) => [c.id, c])), [clients.rows]);
+  const pby = useMemo(() => Object.fromEntries((projects.rows || []).map((p) => [p.id, p])), [projects.rows]);
+  // Clinics of a login: the ones ticked for them, plus the clinics of their projects
+  const clinicsOf = (u) => [...new Set([...(links.rows || []).filter((l) => l.profile_id === u.id).map((l) => l.client_id), ...u.project_ids.map((id) => pby[id]?.client_id)].filter(Boolean))];
+  const roleOf = (u, pid) => (members.rows || []).find((m) => m.project_id === pid && m.email === u.email)?.role;
+  const ROLE_SHORT = { approver: "approver", contributor: "contributor", viewer: "viewer", team: "team" };
 
   return (
     <div>
@@ -215,13 +238,14 @@ function People() {
           onCancel={() => setEditing(null)} onDone={(m, inv) => { setEditing(null); setNote(["good", m]); setInvite(inv); load(); }} />
       )}
       {!users ? <P>Loading…</P> : (
-        <T head={["Name", "Signs in as", "Role", "Status", "Clinic", "Projects", "Last sign-in", ""]} rows={users
+        <T head={["Name", "Signs in as", "Role", "Status", "Clinics", "Projects (code, role)", "Last sign-in", ""]} rows={users
           .sort((a, b) => (b.is_owner - a.is_owner) || (a.full_name || a.login).localeCompare(b.full_name || b.login))
           .map((u) => [
             <button key="n" className="underline text-left" style={{ color: C.deep }} onClick={() => setOpen(open === u.id ? null : u.id)}>{u.full_name || "—"}</button>,
             u.login, u.is_owner ? <Chip key="r" tone="info">Admin</Chip> : "Client",
             <Chip key="s" tone={u.status === "active" ? "good" : "bad"}>{u.status === "active" ? "Active" : "Disabled"}</Chip>,
-            cname[u.client_id] || "–", u.is_owner ? "All" : u.project_ids.map((id) => pname[id]).filter(Boolean).join(", ") || "–",
+            u.is_owner ? "All" : <span key="c">{clinicsOf(u).map((id) => <div key={id}><span className="font-mono text-xs" style={{ color: C.mute }}>{cby[id]?.code}</span> {cby[id]?.name}</div>)}{!clinicsOf(u).length && "–"}</span>,
+            u.is_owner ? "All" : <span key="p">{u.project_ids.map((id) => pby[id] && <div key={id}><Link to={`/studio/p/${pby[id].slug}`} className="underline" style={{ color: C.deep }}><span className="font-mono text-xs">{pby[id].code}</span> {pby[id].name}</Link> <span className="text-xs" style={{ color: C.mute }}>({ROLE_SHORT[roleOf(u, id)] || "–"})</span></div>)}{!u.project_ids.length && "–"}</span>,
             u.last_sign_in_at ? fmtDateTime(u.last_sign_in_at) : "Never",
             <span key="a" className="text-xs whitespace-nowrap">
               <button className="underline mr-2" style={{ color: C.deep }} onClick={() => { setNote(null); setInvite(null); setEditing(u); }}>Edit</button>
@@ -238,7 +262,7 @@ function People() {
           <Card className="mb-4">
             <div className="font-semibold text-sm mb-1" style={{ color: C.deep }}>{u.full_name || u.login}</div>
             <div className="text-sm mb-2" style={{ color: C.mute }}>
-              {[u.phone, u.contact_email, cname[u.client_id]].filter(Boolean).join(" · ") || "No contact details yet."}
+              {[u.phone, u.contact_email, ...clinicsOf(u).map((id) => `${cby[id]?.code} ${cby[id]?.name}`)].filter(Boolean).join(" · ") || "No contact details yet."}
               {u.notes && <div style={{ color: C.ink }}>{u.notes}</div>}
             </div>
             <H2>Services and pricing</H2>
@@ -251,13 +275,16 @@ function People() {
 }
 
 function Clinics() {
-  const projects = useRows(() => supabase.from("projects").select("client_id"), []);
-  const count = (id) => (projects.rows || []).filter((p) => p.client_id === id).length;
+  const projects = useRows(() => supabase.from("projects").select("id,slug,code,name,stage,client_id").order("created_at"), []);
+  const links = useRows(() => supabase.from("profile_clients").select("client_id,profiles(full_name,username)"), []);
+  const mine = (id) => (projects.rows || []).filter((p) => p.client_id === id);
   return (
     <div>
-      <P>Clinics and businesses you work for. Link people to a clinic on the People tab, and projects on each project’s Overview.</P>
+      <P>Clinics and businesses you work for. Each clinic has a permanent code (CLN-001…); each requirement is a project with its own code. A login can belong to several clinics, and each clinic can have several projects.</P>
       <Editor table="clients" fields={FIELDS.clients} order={["name", true]} defaults={{ status: "active" }}
-        columns={[["Name", (r) => <b key="n">{r.name}</b>], ["Clinic", (r) => r.org || "–"], ["Status", (r) => r.status], ["Contact", (r) => [r.phone, r.email].filter(Boolean).join(" · ") || "–"], ["City", (r) => r.city || "–"], ["Projects", (r) => count(r.id)]]} />
+        columns={[["Code", (r) => <span key="c" className="font-mono">{r.code}</span>], ["Name", (r) => <b key="n">{r.name}</b>], ["Clinic", (r) => r.org || "–"], ["Status", (r) => r.status], ["Contact", (r) => [r.phone, r.email].filter(Boolean).join(" · ") || "–"], ["City", (r) => r.city || "–"],
+          ["Projects (requirements)", (r) => <span key="p">{mine(r.id).map((p) => <div key={p.id}><Link to={`/studio/p/${p.slug}`} className="underline" style={{ color: C.deep }}><span className="font-mono text-xs">{p.code}</span> {p.name}</Link></div>)}{!mine(r.id).length && "–"} <Link to="/studio/new" className="text-xs underline" style={{ color: C.mute }}>+ New</Link></span>],
+          ["People", (r) => (links.rows || []).filter((l) => l.client_id === r.id).map((l) => l.profiles?.full_name || l.profiles?.username).filter(Boolean).join(", ") || "–"]]} />
     </div>
   );
 }

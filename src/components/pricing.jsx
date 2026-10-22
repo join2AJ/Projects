@@ -43,7 +43,7 @@ function ClientSays({ r }) {
 }
 
 export function FeesEditor({ projectId }) {
-  const fees = useRows(() => supabase.from("project_services").select("*, fee_private(list_price,discount_note)").eq("project_id", projectId).order("created_at"), [projectId]);
+  const fees = useRows(() => supabase.from("project_services").select("*, fee_private(list_price,discount_note,hours_month)").eq("project_id", projectId).order("created_at"), [projectId]);
   const cat = useRows(() => supabase.from("services").select("*, service_notes(factors,tips,std_price)").order("sort"), []);
   const [edit, setEdit] = useState(null);
   const [msg, setMsg] = useState(null);
@@ -54,7 +54,7 @@ export function FeesEditor({ projectId }) {
     setEdit((e) => ({ ...e, service_key: key, ...(s ? { name: s.name, kind: s.kind, list_price: stdOf(s) ?? "", price: stdOf(s) ?? "" } : {}) }));
   };
   const setPct = (pct) => setEdit((e) => ({ ...e, price: Math.max(0, Math.round(Number(e.list_price || 0) * (1 - Number(pct || 0) / 100))) }));
-  const open = (r) => { setMsg(null); setEdit({ ...r, list_price: one(r.fee_private).list_price ?? "", discount_note: one(r.fee_private).discount_note || "" }); };
+  const open = (r) => { setMsg(null); setEdit({ ...r, list_price: one(r.fee_private).list_price ?? "", discount_note: one(r.fee_private).discount_note || "", hours_month: one(r.fee_private).hours_month ?? "" }); };
 
   const save = async (ev) => {
     ev.preventDefault();
@@ -67,7 +67,7 @@ export function FeesEditor({ projectId }) {
     const res = edit.id ? await supabase.from("project_services").update(body).eq("id", edit.id).select("id").single()
       : await supabase.from("project_services").insert(body).select("id").single();
     if (res.error) return setMsg(["bad", res.error.message]);
-    const priv = { project_service_id: res.data.id, list_price: edit.list_price === "" || edit.list_price == null ? null : Number(edit.list_price), discount_note: edit.discount_note || null, updated_at: new Date().toISOString() };
+    const priv = { project_service_id: res.data.id, list_price: edit.list_price === "" || edit.list_price == null ? null : Number(edit.list_price), discount_note: edit.discount_note || null, hours_month: edit.hours_month === "" || edit.hours_month == null ? null : Number(edit.hours_month), updated_at: new Date().toISOString() };
     const pv = await supabase.from("fee_private").upsert(priv);
     if (pv.error) return setMsg(["bad", pv.error.message]);
     setMsg(["good", "Saved. The client sees the fee straight away and can approve it or propose another."]); setEdit(null); fees.reload();
@@ -121,6 +121,7 @@ export function FeesEditor({ projectId }) {
               <F label="Why the discount (private note)" wide>
                 <input id="fee-reason" value={edit.discount_note || ""} onChange={(e) => setEdit({ ...edit, discount_note: e.target.value })} placeholder="e.g. First client, referred; long-term work" className={input} style={fs} />
               </F>
+              <F label={edit.kind === "monthly" ? "My hours a month (private)" : "My hours in total (private)"}><input id="fee-hours" type="number" min="0" step="0.5" value={edit.hours_month ?? ""} onChange={(e) => setEdit({ ...edit, hours_month: e.target.value })} className={input} style={fs} /></F>
               <F label="Status">
                 <select id="fee-status" value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value })} className={input} style={fs}>
                   {["Proposed", "Agreed", "In progress", "Live", "Done", "Paused", "Stopped", "Declined"].map((o) => <option key={o}>{o}</option>)}
@@ -137,6 +138,7 @@ export function FeesEditor({ projectId }) {
                 <div>Your standard: <b>{stdOf(s) != null ? inr(stdOf(s)) : "–"}</b> {per(s.kind)}</div>
                 <div>Market: <b>{range(s)}</b></div>
                 <div className="mt-1">This fee: <b>{inr(edit.price || 0)}</b> <Position price={edit.price || 0} s={s} /></div>
+                {Number(edit.hours_month) > 0 && <div className="mt-1">Per hour of your time: <b>{inr(Math.round(Number(edit.price || 0) / Number(edit.hours_month)))}</b></div>}
                 {d > 0 && <div className="mt-1" style={{ color: C.good }}>Discount {inr(d)} {per(edit.kind)}</div>}
                 {edit.client_response === "offer" && <div className="mt-1" style={{ color: C.warn }}>Client proposes {inr(edit.client_offer)}</div>}
                 {notesOf(s).factors && <div className="mt-2"><b>What changes the price: </b>{notesOf(s).factors}</div>}
@@ -150,13 +152,15 @@ export function FeesEditor({ projectId }) {
           </div>
         </form>
       )}
-      <T head={["Service", "Billing", "Standard", "Discount", "Client’s fee", "Client says", "Status", "Client sees", ""]} right={[2, 3, 4]} rows={rows.map((r) => {
+      <T head={["Service", "Billing", "Standard", "Discount", "Client’s fee", "My hours", "Client says", "Status", "Client sees", ""]} right={[2, 3, 4, 5]} rows={rows.map((r) => {
         const pv = one(r.fee_private);
         return [
           <span key="n"><b>{r.name}</b><div className="text-xs">{range(svc(r.service_key) || {})} <Position price={r.price} s={svc(r.service_key)} /></div></span>,
           r.kind, pv.list_price != null ? inr(pv.list_price) : "–",
           discountOf(r, pv) ? <span key="d" style={{ color: C.good }}>−{inr(discountOf(r, pv))} ({pctOf(r, pv)}%)</span> : "–",
-          <b key="p">{inr(r.price)}</b>, <ClientSays key="c" r={r} />,
+          <b key="p">{inr(r.price)}</b>,
+          pv.hours_month != null ? <span key="h">{Number(pv.hours_month)} h{r.kind === "monthly" ? " / month" : ""}<div className="text-xs" style={{ color: C.mute }}>{inr(Math.round(r.price / Math.max(Number(pv.hours_month), 0.5)))} / h</div></span> : "–",
+          <ClientSays key="c" r={r} />,
           r.status, r.client_visible ? "Yes" : "No",
           <span key="a" className="text-xs whitespace-nowrap">
             {r.client_response === "offer" && <button className="underline mr-2 font-semibold" style={{ color: C.good }} onClick={() => accept(r)}>Accept {inr(r.client_offer)}</button>}

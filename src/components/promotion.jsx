@@ -107,7 +107,7 @@ function Strategy({ s, admin, onChange }) {
 }
 
 export function PromotionPlan({ projectId, admin = false, cap = null }) {
-  const { rows, reload } = useRows(() => supabase.from("strategies").select("*").eq("project_id", projectId), [projectId]);
+  const { rows, reload } = useRows(() => { const q = supabase.from("strategies").select("*").eq("project_id", projectId); return admin ? q : q.eq("client_visible", true); }, [projectId, admin]);
   const [adding, setAdding] = useState(null); // channel name or ""
   const [show, setShow] = useState("");
   if (!rows) return <P>Loading…</P>;
