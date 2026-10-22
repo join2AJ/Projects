@@ -15,7 +15,7 @@ export const REPORTS = {
     label: "Google Ads audit, Oct 2026",
     tabs: [
       ["meeting", "Kick-off update, 19 Oct", MeetingBrief],
-      ["rw", "Right vs wrong", tailbone.RightWrong],
+      ["rw", "What works and what to improve", tailbone.RightWrong],
       ["verdict", "Verdict", tailbone.Verdict],
       ["issues", "Issues and fixes", tailbone.Issues],
       ["owner", "Campaign set-up", tailbone.OwnerBrief],

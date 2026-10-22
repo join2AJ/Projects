@@ -222,7 +222,8 @@ function Campaign({ c, days, admin, onChange }) {
   const [more, setMore] = useState(false);
   const [adding, setAdding] = useState(false);
   const list = days.filter((d) => d.campaign_id === c.id).sort((a, b) => a.day.localeCompare(b.day));
-  const sum = (k) => (list.some((d) => d[k] != null) ? list.reduce((a, d) => a + (n0(d[k]) || 0), 0) : null);
+  // A total only when every day the ad ran has the figure (a day it was never shown counts as 0), so a part-filled column never looks complete
+  const sum = (k) => (list.every((d) => d[k] != null || !Number(d.impressions)) && list.some((d) => d[k] != null) ? list.reduce((a, d) => a + (n0(d[k]) || 0), 0) : null);
   const tot = { impressions: sum("impressions"), clicks: sum("clicks"), cost: sum("cost"), calls: sum("calls"), conversions: sum("conversions") };
   // CTR and cost per click only over days that have both figures
   const both = (a, b) => list.filter((d) => d[a] != null && d[b] != null);

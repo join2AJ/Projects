@@ -19,7 +19,7 @@ export function MeetingBrief() {
       <div className="text-xs mb-2" style={{ color: C.mute }}>Kick-off update · Mon 19 Oct 2026 · Dr Rajveer and Ajay · then every Tuesday at 11:00</div>
       <H1>We are on track: ad money now goes to people searching for tailbone treatment, with a hard monthly ceiling</H1>
       <P>
-        Since 1 August, {inr(LEDGER_TOTAL)} (before GST) went to campaigns that mostly bought cheap clicks and video views. On 18 Oct we paused all of them
+        Since 1 August, {inr(LEDGER_TOTAL)} (before GST) went to campaigns that mostly bought low-cost clicks and video views. On 18 Oct we paused all of them
         and built one Search campaign for Delhi NCR at ₹{DAILY} a day, about {inr(month)} a month with GST, never more than {inr(CEILING)}.
         Two things stand between it and launch: the old website text, and the ₹3,500 top-up.
       </P>
@@ -27,7 +27,7 @@ export function MeetingBrief() {
       <H2>Decision 1: stopping the old ads was right</H2>
       <T head={["Campaign", "Spend since 1 Aug", "What it was buying", "Call"]} right={[1]} rows={[
         [<b key="a">PMax-5 Website traffic</b>, `${inr(p5[1])} (${pct(p5[1])})`,
-          `${cp5.cpc} clicks at a ${cp5.ctr} CTR, which is far too cheap and too high for a clinic. Its ${cp5.conv} “conversions” carry no value, and the only actions recording in the account are soft ones (map taps, YouTube subscriptions).`,
+          `${cp5.cpc} clicks at a ${cp5.ctr} CTR, which is unusually low-cost and high for a clinic. Its ${cp5.conv} “conversions” carry no value, and the only actions recording in the account are soft ones (map taps, YouTube subscriptions).`,
           <Chip key="1" tone="good">Right to stop</Chip>],
         [<b key="b">YouTube Promotion</b>, `${inr(yt[1])} (${pct(yt[1])}) in 7 days`,
           "Views at about ₹0.08 each, climbing from ₹72 to ₹262 a day. It had become the largest daily spender and buys views, not appointments.",
@@ -65,7 +65,7 @@ export function MeetingBrief() {
 
       <H2>Agenda (30 minutes)</H2>
       <OL items={[
-        "5 min: what we found (Right vs wrong tab). Spend went to cheap clicks and views, and the numbers could not be trusted.",
+        "5 min: what we found (What works and what to improve tab). Spend went mostly to low-cost clicks and views, and the numbers need checking against real calls.",
         "5 min: what we did on 18 Oct. Old ads paused, Search campaign built, monthly cap set.",
         "5 min: the risks above, and the website fix needed before launch.",
         "10 min: what is needed from you (list below), and agree the scope and fees (Plan and pricing tab).",

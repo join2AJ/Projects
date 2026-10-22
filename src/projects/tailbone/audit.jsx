@@ -115,7 +115,7 @@ const ISSUES = [
   { sev: "bad", sl: "Critical", lvl: "Fact", t: "24 of 27 conversion actions are Primary, and the recording ones are soft",
     ev: "All 27 actions add up to 47,997.84 conversions since 2014. Six actions are Active, all Primary: Local actions - Other engagements, Local actions - Directions, YouTube channel subscriptions, YouTube follow-on views, Clicks to call and Website visits (6,011 conversions). Real call wins from ads total 81, which is 0.2%.",
     fix: "Build the new campaign on the Phone call leads goal only, and keep every soft goal out of it. See the Conversion audit tab." },
-  { sev: "bad", sl: "Critical", lvl: "Inference", t: "The 358 conversions probably came from soft actions",
+  { sev: "bad", sl: "Critical", lvl: "Inference", t: "The 358 conversions were probably light actions (map taps, views), not calls",
     ev: "Only soft, Google-hosted or YouTube-hosted actions are recording. A campaign buying YouTube and Maps inventory at ₹0.71 a click would collect exactly these. Not proven: the per-campaign split is unknown, and the table covers all time since 2014.",
     fix: "In Campaigns, segment by Conversion action for 17 Sep to 16 Oct. That shows which action produced the 358, and the clinic’s call and form log gives the real count." },
   { sev: "warn", sl: "High", lvl: "Fact", t: "85% of recorded conversions come from two Analytics actions",
@@ -130,7 +130,7 @@ const ISSUES = [
   { sev: "warn", sl: "High", lvl: "Fact", t: "The clinic has two websites that disagree",
     ev: "tailbonetreatment.com is the older WordPress site: it still lists a Bangalore clinic and calls itself India’s No. 1. The newer site (tailbone.onrender.com, canonical tailbone.netlify.app) lists New Delhi, online, Lucknow soon and Bengaluru closed, with a booking system, consultation ₹800 and follow-up ₹500. The old conversion tags belong to the old site.",
     fix: "Move the new site onto the clinic’s own domain, tailbonetreatment.com, so there is one site. Until then, remove Bangalore and superlative claims from the old pages. Install and test the Google tag on the new site before ads go live." },
-  { sev: "bad", sl: "High", lvl: "Fact", t: "PMax-5 keeps being reset, so it never settles",
+  { sev: "bad", sl: "High", lvl: "Fact", t: "PMax-5 settings changed often, so it could not settle",
     ev: "Budget ₹230 to ₹380 (18 Sep), then ₹380 to ₹180 (29 Sep). Locations edited on 18 Sep and 25 Sep. New headlines, long headlines, search themes and the audience persona were replaced on 16 Oct.",
     fix: "Freeze both PMax campaigns for 14 days except for the conversion and geography fixes. Then judge on real enquiries only." },
   { sev: "bad", sl: "High", lvl: "Fact", t: "Two video campaigns took 15% of spend since 1 August",
@@ -142,13 +142,13 @@ const ISSUES = [
   { sev: "warn", sl: "High", lvl: "Fact", t: "Most assets are policy-limited, and two are disapproved",
     ev: "“Most asset groups limited by policy”. 25 of 34 assets read Approved (limited). Disapproved: the coccygodynia sitelink and one logo. PMax-5 text includes “Exercise and Back Pain cure”, “Rated Chiropractors in India”, “proven methods” and “lasting relief”, which are claim-risk wording.",
     fix: "Open Policy manager and read which policy each flag cites. Remove cure, rated, proven and lasting claims. Re-submit the two assets. Verify before applying for healthcare certification (see note below)." },
-  { sev: "warn", sl: "Medium", lvl: "Fact", t: "Target CPA values fight reality",
-    ev: "PMax-5 target ₹17.19 locks in whatever cheap action converts. PMax-4 target ₹43 against ₹21.50 CPC would need over 50% of clicks to convert, but actual cost per conversion is ₹62.11, so bidding is throttled.",
+  { sev: "warn", sl: "Medium", lvl: "Fact", t: "Target cost-per-result values did not match real costs",
+    ev: "PMax-5 target ₹17.19 favours whichever low-cost action converts. PMax-4 target ₹43 against ₹21.50 CPC would need over 50% of clicks to convert, but actual cost per conversion is ₹62.11, so bidding is throttled.",
     fix: "After the conversion fix, run Maximise conversions for about two weeks, then set Target CPA near 1.2× the cost per real enquiry." },
   { sev: "warn", sl: "Medium", lvl: "Fact", t: "No Search campaign at all",
     ev: "Search impressions are 0 in the window. Condition-based searches (“tailbone pain treatment”, “coccyx pain doctor Delhi”) are the highest-intent traffic. Sitelink clicks costing ₹12 to ₹16 show what that intent costs.",
     fix: "Launch a Search campaign on phrase and exact match with negatives, call and location assets, and clinic-hours scheduling." },
-  { sev: "info", sl: "Medium", lvl: "Fact", t: "Asset clutter and Average ad strength",
+  { sev: "info", sl: "Medium", lvl: "Fact", t: "Many assets and Average ad strength",
     ev: "24 sitelinks, 12 with zero impressions, many duplicated across both campaigns. Both asset groups show ad strength Average.",
     fix: "Delete zero-impression duplicates, keep 4 to 6 strong sitelinks per campaign, and add proper video and image variety." },
   { sev: "info", sl: "Low", lvl: "Fact", t: "Scores and prompts to ignore for now",
@@ -229,7 +229,7 @@ function Verdict() {
   return (
     <div>
       <h1 className="text-3xl mb-3" style={{ fontFamily: FH, color: C.deep, fontWeight: 600, lineHeight: 1.2, maxWidth: "24ch" }}>
-        Most of the money is buying cheap clicks nobody has proven are patients
+        Most of the budget went to low-cost clicks that cannot yet be linked to patients
       </h1>
       <P>Over the last 30 days, 79% of spend went to “Website traffic – PMax-5”, which pays ₹0.71 per click and reports 358 conversions. That is like a pedometer counting a shaken wrist as steps: the number looks athletic, the activity may not be. Meanwhile the campaign that names your treatment has barely begun, and the prepaid balance is ₹1.10.</P>
 
@@ -334,7 +334,7 @@ function RightWrong() {
   const wrong = ISSUES.map((w, i) => ({ ...w, st: ISSUE_STATUS[i] })).filter((i) => i.sl !== "Low");
   return (
     <div>
-      <P>Plain summary for the doctor. Left: what the account was already doing well. Right: what was wrong, and where each item stands now that the old campaigns are paused and the Search campaign is built.</P>
+      <P>Plain summary for the doctor. Left: what the account was already doing well. Right: what to improve, and where each item stands now that the old campaigns are paused and the Search campaign is built.</P>
       <div className="grid gap-6 md:grid-cols-2">
         <div>
           <H2>What is going right</H2>
@@ -345,7 +345,7 @@ function RightWrong() {
           </ul>
         </div>
         <div>
-          <H2>What is going wrong, and where it stands</H2>
+          <H2>What to improve, and where it stands</H2>
           <ul className="text-sm" style={{ lineHeight: 1.6 }}>
             {wrong.map((w, i) => (
               <li key={i} className="mb-4 pl-3" style={{ borderLeft: `3px solid ${C[w.sev === "info" ? "warn" : w.sev]}`, color: C.ink }}>
@@ -443,7 +443,7 @@ function Habits() {
         ["Balance at zero before a top-up", "30 Sep ended at ₹0.00 after ₹1,316.55 GST. 1 Oct: no spend. 2 Oct: ₹0.69."],
         ["Month-end GST is a hidden bill", "GST was ₹1,399 for Aug and ₹1,317 for Sep, taken from the balance on the last day."],
         ["Video spend crowds in", "YouTube Promotion went ₹72 → ₹198 → ₹191 → ₹225 → ₹2 → ₹251 → ₹262 a day from 11 to 17 Oct."],
-        ["Credits are small", "Adjustments total ₹139 since 1 Aug (under 1% of spend), so Google found little invalid traffic. The cheap clicks are probably valid but accidental or low intent, not fraud."],
+        ["Credits are small", "Adjustments total ₹139 since 1 Aug (under 1% of spend), so Google found little invalid traffic. The low-cost clicks are probably valid but accidental or low intent, not fraud."],
       ]} />
 
       <H2>Monthly cost against impressions (2025–2026)</H2>
@@ -613,7 +613,7 @@ function Basics() {
         ["Click", "Someone tapped the ad", "9,305"],
         ["CTR", "Clicks ÷ impressions", "9.89% on PMax-5, suspiciously high for a clinic"],
         ["CPC", "Cost per click", "₹0.71 on PMax-5 vs ₹21.50 on PMax-4"],
-        ["Conversion", "An action you told Google to count (call, form, WhatsApp)", "367, but nobody has checked what they are"],
+        ["Conversion", "An action you told Google to count (call, form, WhatsApp)", "367, still to be checked against real enquiries"],
         ["Cost per conversion", "Spend ÷ conversions", "₹18.31 vs ₹62.11"],
         ["Budget", "A daily average. One day can cost up to 2×, but a month never exceeds 30.4 × the daily budget", "₹180 and ₹140 per day"],
         ["Target CPA", "The price per conversion Google tries to hit", "₹17.19 and ₹43"],
@@ -720,7 +720,7 @@ function ConvCheck() {
       <P>It is possible, but nothing in these files proves it. Nobody has to click anything to make conversions look high. It is enough to change what the account counts. A fitness band that counts arm-shakes as steps looks athletic whether the cause is a bad setting or someone shaking their wrist on purpose. Only the settings history tells you which.</P>
       <T head={["#", "Explanation", "Fits our data?", "Level"]} rows={[
         ["1", "Soft actions counted as conversions (page view, button tap, any click). Most common, and often lazy setup, not fraud.", "Strong: value equals count, and the only actions recording are soft ones (see Conversion audit).", <Chip key="a" tone="warn">Inference</Chip>],
-        ["2", "Accidental taps on cheap inventory (apps, video, Display).", "Strong: 9.89% CTR and 46 video views.", <Chip key="b" tone="warn">Inference</Chip>],
+        ["2", "Accidental taps on low-cost inventory (apps, video, Display).", "Strong: 9.89% CTR and 46 video views.", <Chip key="b" tone="warn">Inference</Chip>],
         ["3", "Existing patients searching the clinic name. Real, but not new patients.", "Partial: the business-name asset had 247 clicks.", <Chip key="c" tone="warn">Inference</Chip>],
         ["4", "Someone tapping or submitting on purpose (staff, relatives, a manager).", "Weak at this scale. It could add a few, not explain ~9,000 clicks.", <Chip key="d" tone="info">Unknown</Chip>],
         ["5", "Setup chosen so reports look good: easy actions made Primary, so ₹18 per conversion looks excellent.", "Fits the pattern, but the data cannot show intent.", <Chip key="e" tone="info">Unknown</Chip>],
@@ -783,8 +783,8 @@ function Plan12() {
       <H2>Which campaign types to use</H2>
       <T head={["Type", "Simple meaning", "Use here?", "Share of budget"]} rows={[
         [<b key="1">Search</b>, "Text ads when someone types “tailbone pain doctor Delhi”", "Yes, the core. Targets people already looking", "100% (₹200 a day)"],
-        [<b key="2">Performance Max (PMax-4)</b>, "Google’s autopilot across Search, YouTube, Display, Maps", "Paused. Return only after 30 days of Search data and working tracking", "0% (paused)"],
-        [<b key="3">Performance Max (PMax-5)</b>, "Same autopilot, with the cheap-click problem", "Paused. Unproven and policy-flagged", "0% (paused)"],
+        [<b key="2">Performance Max (PMax-4)</b>, "Google’s automated campaign across Search, YouTube, Display, Maps", "Paused. Return only after 30 days of Search data and working tracking", "0% (paused)"],
+        [<b key="3">Performance Max (PMax-5)</b>, "Same automated type, mostly low-cost clicks", "Paused. Unproven and policy-flagged", "0% (paused)"],
         [<b key="4">Google Business Profile</b>, "Your free map listing", "Yes: reviews, photos and correct clinic addresses, no ad cost", "0%"],
         [<b key="5">YouTube, Display, Demand Gen</b>, "Awareness ads", "Not now. Revisit after month 9, capped at 10%", "0%"],
         [<b key="6">Remarketing</b>, "Following past visitors", "Avoid: health-based personalisation is restricted (the policy flags suggest this)", "0%"],
@@ -884,7 +884,7 @@ function ConvAudit() {
         "In 14 days return to Goals, Conversions, Summary. Only Calls from ads should be recording for the new campaign.",
       ]} />
       <Box tone="info" title="Two things to find out">
-        What the GA4 event tailbonetreatment_leads fires on (GA4, Admin, Events), and whether “SPH” is an agency or a past manager.
+        What the GA4 event tailbonetreatment_leads fires on (GA4, Admin, Events), and which call action should count when two are set up.
       </Box>
     </div>
   );
@@ -904,7 +904,7 @@ function OwnerBrief() {
     ["Bidding", "Maximise clicks, maximum cost per click ₹40", "Too little conversion data for automatic bidding. The cap protects the budget. Verify the ₹40 is saved."],
     ["Budget", "₹200 a day (average)", "About ₹6,080 a month before GST and ₹7,174 with GST. One day can reach ₹400."],
     ["Hard ceiling", "₹10,000 a month incl. GST, prepay", "The loaded balance is the only absolute stop. Ads pause when it reaches zero."],
-    ["Networks", "Google Search only", "Search Partners and Display are off, so no cheap accidental-tap inventory."],
+    ["Networks", "Google Search only", "Search Partners and Display are off, so the ads show on Google search results."],
     ["Locations", "Delhi, Faridabad, Ghaziabad, Gurugram, Noida", "Delhi clinic only. Bangalore is closed and Lucknow has not opened. Verify the option is Presence."],
     ["Languages, audiences, AI", "English and Hindi, no audiences, AI Max off", "Health audiences are restricted. AI Max would widen matching and rewrite ad text."],
     ["Keywords", "15, phrase and exact match only", "Three common keywords were flagged and removed: [tailbone pain treatment], “tailbone pain treatment”, “tailbone pain clinic”."],

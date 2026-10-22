@@ -10,7 +10,7 @@ import { C, inr, Chip, H2, P, Box, T } from "../../components/ui.jsx";
 const CAMPAIGNS = [
   ["Tailbone Pain Specialist", "Removed", "Search", 957150, 80905, 36771, 1095, "70% of all spend; conversions were Analytics actions", "bad"],
   ["Website traffic – Performance Max-5", "Paused 18 Oct", "PMax", 80951, 94309, 2435, 0, "Cheap clicks (₹0.86), no traceable calls", "bad"],
-  ["Website traffic – Search-9 by SPH", "Removed", "Search", 41662, 25652, 1319, 303, "Mostly cheap clicks", "warn"],
+  ["Website traffic – Search-9 by SPH", "Removed", "Search", 41662, 25652, 1319, 303, "Mostly low-cost clicks", "warn"],
   ["YouTube: Tailbone Pain Treatment, Coccyx Pain Precautions", "Removed", "Video", 42056, 81313, 0, 0, "Views, not enquiries", "bad"],
   ["Tailbone Treatment – Performance Max-4", "Paused 18 Oct", "PMax", 30863, 22608, 165, 0, "Best of the PMax campaigns", "warn"],
   ["Smart campaigns (7)", "Paused / removed", "Smart", 54222, 14482, 57, 665, "Low volume, high cost per result", "warn"],
