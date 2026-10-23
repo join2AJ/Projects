@@ -13,6 +13,7 @@ import { PromotionPlan } from "../../components/promotion.jsx";
 import { TabIndex } from "../../components/tabindex.jsx";
 import { NavTabs, flatTabs } from "../../components/navtabs.jsx";
 import { Campaigns } from "../../components/campaigns.jsx";
+import { WebsitePreview } from "../../components/workflow.jsx";
 import { useNeedsYou, ClientHome, Deliverables, Cycles, useFocusItem } from "../../components/workflow.jsx";
 import { track } from "../../lib/track.js";
 
@@ -148,6 +149,7 @@ function ClientProject({ p, role, visible, since, tab, setTab, name, preview = f
       {t === "monthly" && <Cycles projectId={p.id} role={role} />}
       {t === "updates" && <ClientUpdates p={p} go={go} />}
       {t === "issues" && <IssuesList projectId={p.id} />}
+      {t === "money" && <WebsitePreview projectId={p.id} compact />}
       {t === "money" && (p.money_open ? <MoneyClient projectId={p.id} project={p} /> : (<>
         <Box tone="info" title="Coming soon">
           Your fees and payments will appear here once we have agreed the scope together. Nothing is charged until then.

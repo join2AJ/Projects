@@ -272,7 +272,7 @@ export function Cycles({ projectId, admin = false, role = null }) {
 }
 
 /* ───────── the new website: a first look (shared design pictures only, no link) ───────── */
-export function WebsitePreview({ projectId }) {
+export function WebsitePreview({ projectId, compact = false }) {
   const [urls, setUrls] = useState(null);
   const pics = useRows(() => supabase.from("files").select("id,name,storage_path,mime").eq("project_id", projectId).eq("client_visible", true).eq("category", "design").like("mime", "image/%").order("name").limit(2), [projectId]);
   useEffect(() => {
@@ -282,8 +282,18 @@ export function WebsitePreview({ projectId }) {
   }, [pics.rows]);
   if (!pics.rows?.length) return null;
   const wide = (n) => /desktop|computer/i.test(n);
+  // Small version for the Money tab: one picture and a link to the full look on Home
+  if (compact) {
+    const p = pics.rows[0];
+    return (
+      <Link to="?tab=home&item=website-preview" className="flex items-center gap-3 p-3 mb-4 rounded" style={{ border: `1px solid ${C.rule}`, background: C.card, color: C.ink }}>
+        {urls?.[p.storage_path] ? <img src={urls[p.storage_path]} alt="" className="rounded shrink-0" style={{ width: 120, aspectRatio: wide(p.name) ? "16 / 10" : "390 / 844", objectFit: "cover", objectPosition: "top", border: `1px solid ${C.rule}` }} /> : <div className="rounded shrink-0" style={{ width: 120, aspectRatio: "16 / 10", background: C.bg }} />}
+        <span className="text-sm">Website redesign: kindly have a look at the preview of your new website. <span className="underline" style={{ color: C.deep }}>See it on Home</span></span>
+      </Link>
+    );
+  }
   return (
-    <Card className="mt-4">
+    <Card className="mt-4"><div id="item-website-preview">
       <div className="font-semibold" style={{ color: C.deep }}>A first look at your new website</div>
       <div className="text-xs mb-3" style={{ color: C.mute }}>In English and Hindi. More soon.</div>
       <div className="flex gap-3 overflow-x-auto pb-1 items-start">
@@ -295,7 +305,7 @@ export function WebsitePreview({ projectId }) {
           </div>
         ))}
       </div>
-    </Card>
+    </div></Card>
   );
 }
 
@@ -307,8 +317,12 @@ export function useNeedsYou(p, role) {
   const act = useRows(() => supabase.from("meeting_items").select("id,body,due_on,owner,status,meetings!inner(client_visible)").eq("project_id", pid).eq("kind", "action").eq("client_visible", true).eq("meetings.client_visible", true).in("owner", ["client", "both"]).in("status", ["open", "in_progress"]), [pid]);
   const del = useRows(() => supabase.from("deliverables").select("id,title,due_on").eq("project_id", pid).eq("client_visible", true).eq("status", "awaiting"), [pid]);
   const fee = useRows(() => (p.money_open ? supabase.from("project_services").select("id,name,price,kind").eq("project_id", pid).eq("client_visible", true).is("client_response", null).not("status", "in", "(Declined,Stopped)") : Promise.resolve({ data: [] })), [pid, p.money_open]);
+  // "Website preview added": shown until this person has opened it once (their own page views record that)
+  const web = useRows(() => supabase.from("files").select("created_at").eq("project_id", pid).eq("client_visible", true).eq("category", "design").like("mime", "image/%").order("created_at", { ascending: false }).limit(1), [pid]);
+  const webSeen = useRows(() => supabase.from("page_views").select("at").eq("project_id", pid).eq("tab", "website-preview").order("at", { ascending: false }).limit(1), [pid]);
   const cyc = useRows(() => supabase.from("cycles").select("id,month").eq("project_id", pid).eq("client_visible", true).eq("status", "report_sent"), [pid]);
-  const loading = [dec, req, act, del, cyc, fee].some((x) => !x.rows);
+  const loading = [dec, req, act, del, cyc, fee, web, webSeen].some((x) => !x.rows);
+  const newWeb = !loading && web.rows.length > 0 && !(webSeen.rows[0] && webSeen.rows[0].at >= web.rows[0].created_at);
   const approver = role === "approver";
   const doer = ["approver", "contributor"].includes(role);
   const replies = (req.rows || []).filter((r) => {
@@ -319,12 +333,13 @@ export function useNeedsYou(p, role) {
     ...(approver ? dec.rows.map((d) => ({ tab: "decisions", id: d.id, kind: "Answer", text: d.question, due: d.due_on })) : []),
     ...(approver ? del.rows.map((d) => ({ tab: "approvals", id: d.id, kind: "Sign off", text: d.title, due: d.due_on })) : []),
     ...(approver ? cyc.rows.map((c) => ({ tab: "monthly", id: c.id, kind: "Approve report", text: monthName(c.month) })) : []),
+    ...(newWeb ? [{ tab: "home", id: "website-preview", kind: "New", text: "Website preview added for your reference", seen: true }] : []),
     // One line for all fees; it goes away once every fee has an answer
     ...(approver && fee.rows.length ? [{ tab: "money", id: "fees", kind: "Your approval", text: "Kindly have a look at the Money section: your approval is awaited" }] : []),
     ...(doer ? act.rows.map((a) => ({ tab: "meetings", id: a.id, kind: "Your action", text: a.body, due: a.due_on, action: true })) : []),
   ].sort((a, b) => String(a.due || "9").localeCompare(String(b.due || "9")));
   const counts = { decisions: approver ? dec.rows?.length || 0 : 0, approvals: approver ? del.rows?.length || 0 : 0, monthly: approver ? cyc.rows?.length || 0 : 0, money: approver && fee.rows?.length ? 1 : 0, requests: 0, meetings: doer ? act.rows?.length || 0 : 0 };
-  return { loading, items, counts, replies, reload: () => [dec, req, act, del, cyc, fee].forEach((x) => x.reload()) };
+  return { loading, items, counts, replies, reload: () => [dec, req, act, del, cyc, fee, web, webSeen].forEach((x) => x.reload()) };
 }
 
 export function ClientHome({ p, role, needs, go, since, name }) {
@@ -336,6 +351,13 @@ export function ClientHome({ p, role, needs, go, since, name }) {
   const camp = useRows(() => supabase.from("campaigns").select("highlights").eq("project_id", p.id).eq("client_visible", true).eq("status", "live").not("highlights", "is", null).order("sort").limit(1), [p.id]);
   const good = (camp.rows?.[0]?.highlights || "").split("\n").filter(Boolean).slice(0, 2);
   const [busy, setBusy] = useState(null);
+  // Opening the website preview (from Home or Money) records that it was seen, so the "New" line goes
+  const [qs] = useSearchParams();
+  const opened = qs.get("item") === "website-preview";
+  useEffect(() => {
+    if (!opened || !needs.items.some((i) => i.id === "website-preview")) return;
+    supabase.from("page_views").insert({ path: `/portal/p/${p.slug}`, project_id: p.id, tab: "website-preview" }).then(() => needs.reload());
+  }, [opened, needs.items.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const done = async (id) => { setBusy(id); await supabase.rpc("client_item_done", { item: id, done: true }); setBusy(null); needs.reload(); };
   const n = needs.items.length;
   const next = chg.rows ? nextUpdate(chg.rows, p.id) : null;
@@ -362,7 +384,7 @@ export function ClientHome({ p, role, needs, go, since, name }) {
           <ul>
             {needs.items.map((i) => (
               <li key={i.tab + i.id} className="flex flex-wrap items-center gap-2 py-2" style={{ borderTop: `1px solid ${C.rule}` }}>
-                <Chip tone={i.action ? "info" : "warn"}>{i.kind}</Chip>
+                <Chip tone={i.action || i.seen ? "info" : "warn"}>{i.kind}</Chip>
                 <Link className="flex-1 text-left text-sm underline" style={{ minWidth: 0, color: C.ink }} to={i.id === "fees" ? `?tab=${i.tab}` : `?tab=${i.tab}&item=${i.id}`}>{i.text.length > 110 ? i.text.slice(0, 110) + "…" : i.text}</Link>
                 {i.due && <span className="text-xs" style={{ color: i.due < today() ? C.bad : C.mute }}>by {fmtDate(i.due)}</span>}
                 {i.action && <button disabled={busy === i.id} onClick={() => done(i.id)} className="px-2 py-0.5 rounded text-xs font-semibold" style={{ border: `1px solid ${C.good}`, color: C.good, background: C.goodBg }}>Mark done</button>}
