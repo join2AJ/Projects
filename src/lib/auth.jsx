@@ -58,7 +58,7 @@ export function Require({ owner = false, children }) {
   const loc = useLocation();
   if (!configured) return <NotConfigured />;
   if (loading || (session && !profile)) return <P>Loading…</P>;
-  if (!session) return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname)}`} replace />;
+  if (!session) return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />;
   if (owner && !profile?.is_owner) return <Navigate to="/portal" replace />;
   return children;
 }

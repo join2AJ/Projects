@@ -13,7 +13,8 @@ export default function Login() {
   const [q] = useSearchParams();
   // Only same-site paths: blocks open redirects like ?next=//evil.com or ?next=/\evil.com
   const raw = q.get("next") || "";
-  const next = /^\/(?![\/\\])[\w\-/]*$/.test(raw) ? raw : null;
+  // A same-site path, optionally with a simple ?tab=… query, so shared links open the right section after sign-in
+  const next = /^\/(?![\/\\])[\w\-/]*(\?[\w\-=&]*)?$/.test(raw) ? raw : null;
   const [login, setLogin] = useState(q.get("user") || "");
   const [password, setPassword] = useState("");
   const [state, setState] = useState(["idle"]);
