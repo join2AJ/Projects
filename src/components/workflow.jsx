@@ -271,6 +271,42 @@ export function Cycles({ projectId, admin = false, role = null }) {
   );
 }
 
+/* ───────── the new website: preview pictures (design files) and a link to the live preview ───────── */
+export function WebsitePreview({ projectId }) {
+  const [urls, setUrls] = useState(null);
+  const pics = useRows(() => supabase.from("files").select("id,name,storage_path,mime").eq("project_id", projectId).eq("client_visible", true).eq("category", "design").like("mime", "image/%").order("name"), [projectId]);
+  const svc = useRows(() => supabase.from("project_services").select("note,status").eq("project_id", projectId).eq("client_visible", true).eq("service_key", "website-redesign").limit(1), [projectId]);
+  useEffect(() => {
+    if (!pics.rows?.length) return;
+    supabase.storage.from("project-files").createSignedUrls(pics.rows.map((p) => p.storage_path), 3600)
+      .then(({ data }) => setUrls(Object.fromEntries((data || []).map((d) => [d.path, d.signedUrl]))));
+  }, [pics.rows]);
+  const link = svc.rows?.[0]?.note?.match(/https?:\/\/[^\s,)]+/)?.[0];
+  if (!pics.rows?.length && !link) return null;
+  const label = (n) => n.replace(/\.[a-z]+$/i, "").replace(/^website-/, "").replace(/-/g, " ").replace(/\b\w/, (c) => c.toUpperCase());
+  return (
+    <Card className="mt-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+        <span className="font-semibold" style={{ color: C.deep }}>Your new website: preview</span>
+        {link && <a href={link} target="_blank" rel="noreferrer" className="px-3 py-1 rounded text-xs font-semibold" style={{ background: C.deep, color: "#fff" }}>Open the preview</a>}
+      </div>
+      <div className="text-xs mb-3" style={{ color: C.mute }}>For your reference while it is being finished. It will move to tailbonetreatment.com when you approve it.</div>
+      {(pics.rows || []).length > 0 && (
+        <div className="flex gap-3 overflow-x-auto pb-1">
+          {pics.rows.map((p) => (
+            <a key={p.id} href={urls?.[p.storage_path]} target="_blank" rel="noreferrer" className="shrink-0 text-center" style={{ width: /desktop|computer/i.test(p.name) ? 280 : 130 }}>
+              {urls?.[p.storage_path]
+                ? <img src={urls[p.storage_path]} alt={`Website preview: ${label(p.name)}`} loading="lazy" className="w-full rounded" style={{ border: `1px solid ${C.rule}`, aspectRatio: /desktop|computer/i.test(p.name) ? "16 / 10" : "390 / 844", objectFit: "cover", objectPosition: "top" }} />
+                : <div className="rounded" style={{ background: C.bg, aspectRatio: /desktop|computer/i.test(p.name) ? "16 / 10" : "390 / 844" }} />}
+              <div className="text-xs mt-1" style={{ color: C.mute }}>{label(p.name)}</div>
+            </a>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 /* ───────── client's Home: what needs them, this week, results ───────── */
 export function useNeedsYou(p, role) {
   const pid = p.id;
@@ -373,6 +409,7 @@ export function ClientHome({ p, role, needs, go, since, name }) {
           </div>
         )}
       </Card>
+      <WebsitePreview projectId={p.id} />
       <H2>Where we are</H2>
       <StageBar stage={p.stage} />
       {(svc.rows || []).length > 0 && (<>
