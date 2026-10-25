@@ -39,6 +39,32 @@ export function Linkify({ text }) {
 }
 
 /* mode: "all" (newest first), "latest" (done or in progress), "upcoming" (scheduled, soonest first) */
+/*
+ * Update text with simple tables: lines starting with "|" become a table (first row is the header,
+ * "|---|" lines are skipped); everything else stays as text. Web addresses become links.
+ */
+export function RichText({ text }) {
+  const blocks = [];
+  for (const line of String(text).split("\n")) {
+    const isRow = line.trim().startsWith("|");
+    const last = blocks.at(-1);
+    if (isRow && /^\|\s*:?-{2,}/.test(line.trim())) continue;
+    if (isRow) { if (last?.t === "table") last.rows.push(line); else blocks.push({ t: "table", rows: [line] }); }
+    else if (last?.t === "text") last.lines.push(line); else blocks.push({ t: "text", lines: [line] });
+  }
+  const cells = (r) => r.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+  return blocks.map((b, i) => b.t === "text"
+    ? <div key={i} style={{ whiteSpace: "pre-wrap" }}><Linkify text={b.lines.join("\n")} /></div>
+    : (
+      <div key={i} className="overflow-x-auto my-2">
+        <table className="text-xs w-full" style={{ borderCollapse: "collapse", color: C.ink, minWidth: 520 }}>
+          <thead><tr>{cells(b.rows[0]).map((h, j) => <th key={j} className="text-left py-1.5 pr-3 align-bottom" style={{ borderBottom: `2px solid ${C.deep}`, color: C.deep }}>{h}</th>)}</tr></thead>
+          <tbody>{b.rows.slice(1).map((r, k) => <tr key={k}>{cells(r).map((c, j) => <td key={j} className="py-1.5 pr-3 align-top" style={{ borderBottom: `1px solid ${C.rule}` }}><Linkify text={c} /></td>)}</tr>)}</tbody>
+        </table>
+      </div>
+    ));
+}
+
 export function UpdatesList({ projectId, limit, mode = "all" }) {
   const { rows } = useRows(() => {
     let q = supabase.from("updates").select("*").eq("project_id", projectId).eq("client_visible", true);
@@ -59,7 +85,7 @@ export function UpdatesList({ projectId, limit, mode = "all" }) {
             <Chip tone={u.status === "Done" ? "good" : u.status === "Blocked" ? "bad" : "warn"}>{u.status}</Chip>
           </div>
           <div className="font-semibold text-sm">{u.title}</div>
-          {u.body && <div className="text-sm" style={{ color: C.mute, whiteSpace: "pre-wrap" }}><Linkify text={u.body} /></div>}
+          {u.body && <div className="text-sm" style={{ color: C.mute }}><RichText text={u.body} /></div>}
         </li>
       ))}
     </ul>
