@@ -30,6 +30,14 @@ export const StageBar = ({ stage }) => {
 export const Tag = ({ v }) => <Chip tone={TONE[v] || "info"}>{LABEL[v] || v}</Chip>;
 
 /* ───────── updates ───────── */
+/* Web addresses in a text become links that open in a new tab (e.g. the Google help pages cited in an update) */
+export function Linkify({ text }) {
+  return String(text).split(/(https?:\/\/[^\s)]+)/g).map((part, i) =>
+    /^https?:\/\//.test(part)
+      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: C.deep, wordBreak: "break-all" }}>{part}</a>
+      : part);
+}
+
 /* mode: "all" (newest first), "latest" (done or in progress), "upcoming" (scheduled, soonest first) */
 export function UpdatesList({ projectId, limit, mode = "all" }) {
   const { rows } = useRows(() => {
@@ -45,13 +53,13 @@ export function UpdatesList({ projectId, limit, mode = "all" }) {
   return (
     <ul className="mb-4">
       {rows.map((u) => (
-        <li key={u.id} className="pl-3 mb-3" style={{ borderLeft: `3px solid ${u.status === "Done" ? C.good : u.status === "Blocked" ? C.bad : C.info}` }}>
+        <li key={u.id} id={`item-${u.id}`} className="pl-3 mb-3" style={{ borderLeft: `3px solid ${u.status === "Done" ? C.good : u.status === "Blocked" ? C.bad : C.info}` }}>
           <div className="flex flex-wrap gap-2 items-center text-xs" style={{ color: C.mute }}>
             <span>{fmtDate(u.happened_on)}</span><Chip tone={u.kind === "meeting" ? "good" : "info"}>{KIND_LABEL[u.kind] || u.kind}</Chip>
             <Chip tone={u.status === "Done" ? "good" : u.status === "Blocked" ? "bad" : "warn"}>{u.status}</Chip>
           </div>
           <div className="font-semibold text-sm">{u.title}</div>
-          {u.body && <div className="text-sm" style={{ color: C.mute, whiteSpace: "pre-wrap" }}>{u.body}</div>}
+          {u.body && <div className="text-sm" style={{ color: C.mute, whiteSpace: "pre-wrap" }}><Linkify text={u.body} /></div>}
         </li>
       ))}
     </ul>
