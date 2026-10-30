@@ -297,7 +297,7 @@ export function WebsitePreview({ projectId, compact = false }) {
   return (
     <Card className="mt-4"><div id="item-website-preview">
       <div className="font-semibold" style={{ color: C.deep }}>A first look at your new website</div>
-      <div className="text-xs mb-3" style={{ color: C.mute }}>In English and Hindi. Phase 1 in progress; more soon.</div>
+      <div className="text-xs mb-3" style={{ color: C.mute }}>In English and Hindi. More soon.</div>
       <div className="flex gap-3 overflow-x-auto pb-1 items-start">
         {pics.rows.map((p) => (
           <div key={p.id} className="shrink-0" style={{ width: wide(p.name) ? 300 : 140 }}>
