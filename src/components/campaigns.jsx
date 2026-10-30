@@ -182,6 +182,8 @@ const short = (d) => new Date(`${d}T12:00:00+05:30`).toLocaleDateString("en-IN",
 function Trend({ title, data, fmt: raw }) {
   const fmt = (v, axis) => (v == null ? "–" : raw(v, axis));
   const last = data.length - 1;
+  // A figure that stops before the latest day says so, rather than looking like a drop
+  const upto = data.reduce((a, d, i) => (d.v != null ? i : a), -1);
   return (
     <figure className="p-2 rounded" style={{ border: `1px solid ${C.rule}` }}>
       <figcaption className="text-xs font-semibold mb-1" style={{ color: C.ink }}>{title}</figcaption>
@@ -199,6 +201,7 @@ function Trend({ title, data, fmt: raw }) {
           </LineChart>
         </ResponsiveContainer>
       </div>
+      {upto >= 0 && upto < last && <div className="text-xs mt-1" style={{ color: C.mute }}>By day up to {data[upto].d}; later days are added when Google’s day-by-day report is in.</div>}
     </figure>
   );
 }
@@ -238,6 +241,17 @@ function Campaign({ c, days, admin, onChange }) {
   const cpc = (rows) => { const k = rows.reduce((x, d) => x + Number(d.clicks), 0); return k ? rs(Math.round((rows.reduce((x, d) => x + Number(d.cost), 0) / k) * 100) / 100) : "–"; };
   const share = async () => { await supabase.from("campaigns").update({ client_visible: !c.client_visible, updated_at: new Date().toISOString() }).eq("id", c.id); onChange(); };
   const MORE = ["keywords", "ads", "assets", "bidding"];
+  // Table columns: a column with no figure on any day is left out
+  const any = (k) => list.some((d) => d[k] != null);
+  const COLS = [
+    ["Day", (d) => fmtDate(d.day), "Total", true],
+    ["Shown", (d) => int(n0(d.impressions)), int(tot.impressions), true],
+    ["Clicks", (d) => int(n0(d.clicks)), int(tot.clicks), any("clicks")],
+    ["Click rate", (d) => ctr(d.impressions != null && d.clicks != null ? [d] : []), ctr(both("impressions", "clicks")), any("clicks")],
+    ["Spent", (d) => rs(n0(d.cost)), rs(tot.cost), any("cost")],
+    ["Per click", (d) => cpc(d.clicks != null && d.cost != null ? [d] : []), cpc(both("clicks", "cost")), any("cost") && any("clicks")],
+    ["Calls", (d) => int(n0(d.calls)), int(tot.calls), any("calls")],
+  ].filter((x) => x[3]);
   const shown = more ? DETAILS : DETAILS.filter(([k]) => !MORE.includes(k));
   if (edit) return <CampaignForm projectId={c.project_id} c={c} onDone={() => { setEdit(false); onChange(); }} />;
   return (
@@ -276,19 +290,19 @@ function Campaign({ c, days, admin, onChange }) {
         {!list.length ? <P style={{ color: C.mute }}>No figures yet.</P> : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm" style={{ borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" }} aria-label={`Results by day: ${c.name}`}>
-              <thead><tr>{["Day", "Shown", "Clicks", "Click rate", "Spent", "Per click", "Calls"].map((h, i) => (
+              <thead><tr>{COLS.map(([h], i) => (
                 <th key={h} className="py-1.5 pr-3 font-semibold" style={{ borderBottom: `2px solid ${C.deep}`, color: C.deep, textAlign: i ? "right" : "left", whiteSpace: "nowrap" }}>{h}</th>
               ))}</tr></thead>
               <tbody>
                 {list.map((d) => (
                   <tr key={d.day}>
-                    {[fmtDate(d.day), int(n0(d.impressions)), int(n0(d.clicks)), ctr(d.impressions != null && d.clicks != null ? [d] : []), rs(n0(d.cost)), cpc(d.clicks != null && d.cost != null ? [d] : []), int(n0(d.calls))].map((v, i) => (
+                    {COLS.map(([, f]) => f(d)).map((v, i) => (
                       <td key={i} className="py-1.5 pr-3" style={{ borderBottom: `1px solid ${C.rule}`, textAlign: i ? "right" : "left", whiteSpace: "nowrap" }}>{v}</td>
                     ))}
                   </tr>
                 ))}
                 <tr>
-                  {["Total", int(tot.impressions), int(tot.clicks), ctr(both("impressions", "clicks")), rs(tot.cost), cpc(both("clicks", "cost")), int(tot.calls)].map((v, i) => (
+                  {COLS.map(([, , t]) => t).map((v, i) => (
                     <td key={i} className="py-1.5 pr-3 font-semibold" style={{ textAlign: i ? "right" : "left", whiteSpace: "nowrap" }}>{v}</td>
                   ))}
                 </tr>
