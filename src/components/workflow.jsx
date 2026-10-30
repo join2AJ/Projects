@@ -376,12 +376,12 @@ export function ClientHome({ p, role, needs, go, since, name }) {
   const next = chg.rows ? nextUpdate(chg.rows, p.id) : null;
   // Results: the new Search campaign only (old PMax and video figures would distract); the latest value of up to three figures, with the change on the period before
   const byMetric = new Map(); (mets.rows || []).filter((m) => /search/i.test(m.metric)).forEach((m) => byMetric.set(m.metric, [...(byMetric.get(m.metric) || []), m]));
-  const TOP = ["Search ad impressions", "Search ad clicks", "Search ad calls"];
+  const TOP = ["Search ad impressions", "Search ad clicks", "Search ad calls", "Search ad click rate"];
   const rank = (m) => (TOP.includes(m) ? TOP.indexOf(m) : TOP.length);
   const results = [...byMetric].map(([m, list]) => { const a = list.at(-1), b = list.at(-2); return { m, v: Number(a.value), unit: a.unit, d: b ? Number(a.value) - Number(b.value) : null, p: a.period }; })
     // Impressions, clicks and calls first, then the biggest figures
     .sort((x, y) => rank(x.m) - rank(y.m) || y.v - x.v).slice(0, 3);
-  const fmtV = (r) => (r.unit === "₹" ? `₹${Math.round(r.v).toLocaleString("en-IN")}` : Math.round(r.v).toLocaleString("en-IN"));
+  const fmtV = (r) => (r.unit === "₹" ? `₹${Math.round(r.v).toLocaleString("en-IN")}` : r.unit === "%" ? `${r.v.toFixed(2)}%` : Math.round(r.v).toLocaleString("en-IN"));
   return (
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-2">

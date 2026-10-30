@@ -170,7 +170,7 @@ export function MetricsPanel({ projectId, from = null, before = null, empty = "N
   const vals = data.map((d) => d.v);
   const last12 = vals.slice(-12), prev12 = vals.slice(-24, -12);
   const sum = (a) => a.reduce((x, y) => x + y, 0);
-  const fmtV = (v) => (unit === "₹" ? inr(v) : Math.round(v).toLocaleString("en-IN") + (unit ? ` ${unit}` : ""));
+  const fmtV = (v) => (unit === "₹" ? inr(v) : unit === "%" ? `${Number(v).toFixed(2)}%` : Math.round(v).toLocaleString("en-IN") + (unit ? ` ${unit}` : ""));
   const stamp = rows.map((r) => r.updated_at).filter(Boolean).sort().at(-1);
   return (
     <div>
