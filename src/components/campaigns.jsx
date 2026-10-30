@@ -232,7 +232,7 @@ function Trends({ list, markers }) {
       </div>
       {marks.length > 0 && (
         <ul className="text-xs mt-2" style={{ color: C.ink }} aria-label="Dotted lines on the charts">
-          {marks.map((m) => <li key={m.n} className="flex gap-2 py-0.5"><span className="font-semibold" style={{ color: C.warn, minWidth: 64 }}>┆ {m.n} · {m.x}</span><span>{m.text}</span></li>)}
+          {marks.map((m) => <li key={m.n} className="flex gap-2 py-0.5"><span className="font-semibold" style={{ color: C.warn, whiteSpace: "nowrap" }}>┆ {m.n} · {m.x}</span><span>{m.text}</span></li>)}
         </ul>
       )}
     </div>
