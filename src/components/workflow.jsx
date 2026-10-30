@@ -274,14 +274,16 @@ export function Cycles({ projectId, admin = false, role = null }) {
 /* ───────── the new website: a first look (shared design pictures only, no link) ───────── */
 export function WebsitePreview({ projectId, compact = false }) {
   const [urls, setUrls] = useState(null);
-  const pics = useRows(() => supabase.from("files").select("id,name,storage_path,mime").eq("project_id", projectId).eq("client_visible", true).eq("category", "design").like("mime", "image/%").order("name").limit(2), [projectId]);
+  const pics = useRows(() => supabase.from("files").select("id,name,storage_path,mime").eq("project_id", projectId).eq("client_visible", true).eq("category", "design").like("mime", "image/%").order("name").limit(4), [projectId]);
   useEffect(() => {
     if (!pics.rows?.length) return;
     supabase.storage.from("project-files").createSignedUrls(pics.rows.map((p) => p.storage_path), 3600)
       .then(({ data }) => setUrls(Object.fromEntries((data || []).map((d) => [d.path, d.signedUrl]))));
   }, [pics.rows]);
   if (!pics.rows?.length) return null;
-  const wide = (n) => /desktop|computer/i.test(n);
+  const wide = (n) => !/phone|mobile/i.test(n);
+  // "website-2-Tailbone-pain-page.png" → "Tailbone pain page"
+  const caption = (n) => n.replace(/\.[a-z]+$/i, "").replace(/^website-(\d+-)?/i, "").replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase()).replace(/\s(\w)/g, (m) => m.toLowerCase());
   // Small version for the Money tab: one picture and a link to the full look on Home
   if (compact) {
     const p = pics.rows[0];
@@ -295,13 +297,14 @@ export function WebsitePreview({ projectId, compact = false }) {
   return (
     <Card className="mt-4"><div id="item-website-preview">
       <div className="font-semibold" style={{ color: C.deep }}>A first look at your new website</div>
-      <div className="text-xs mb-3" style={{ color: C.mute }}>In English and Hindi. More soon.</div>
+      <div className="text-xs mb-3" style={{ color: C.mute }}>In English and Hindi. Phase 1 in progress; more soon.</div>
       <div className="flex gap-3 overflow-x-auto pb-1 items-start">
         {pics.rows.map((p) => (
           <div key={p.id} className="shrink-0" style={{ width: wide(p.name) ? 300 : 140 }}>
             {urls?.[p.storage_path]
               ? <img src={urls[p.storage_path]} alt="A first look at the new website" loading="lazy" className="w-full rounded" style={{ border: `1px solid ${C.rule}`, aspectRatio: wide(p.name) ? "16 / 10" : "390 / 844", objectFit: "cover", objectPosition: "top" }} />
               : <div className="rounded" style={{ background: C.bg, aspectRatio: wide(p.name) ? "16 / 10" : "390 / 844" }} />}
+            <div className="text-xs mt-1" style={{ color: C.mute }}>{caption(p.name)}</div>
           </div>
         ))}
       </div>
