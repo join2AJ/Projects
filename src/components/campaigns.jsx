@@ -247,9 +247,9 @@ function Campaign({ c, days, admin, onChange }) {
     ["Day", (d) => fmtDate(d.day), "Total", true],
     ["Shown", (d) => int(n0(d.impressions)), int(tot.impressions), true],
     ["Clicks", (d) => int(n0(d.clicks)), int(tot.clicks), any("clicks")],
-    ["Click rate", (d) => ctr(d.impressions != null && d.clicks != null ? [d] : []), ctr(both("impressions", "clicks")), any("clicks")],
+    ["Click rate", (d) => ctr(d.impressions != null && d.clicks != null ? [d] : []), tot.clicks != null ? ctr(both("impressions", "clicks")) : "–", any("clicks")],
     ["Spent", (d) => rs(n0(d.cost)), rs(tot.cost), any("cost")],
-    ["Per click", (d) => cpc(d.clicks != null && d.cost != null ? [d] : []), cpc(both("clicks", "cost")), any("cost") && any("clicks")],
+    ["Per click", (d) => cpc(d.clicks != null && d.cost != null ? [d] : []), tot.clicks != null && tot.cost != null ? cpc(both("clicks", "cost")) : "–", any("cost") && any("clicks")],
     ["Calls", (d) => int(n0(d.calls)), int(tot.calls), any("calls")],
   ].filter((x) => x[3]);
   const shown = more ? DETAILS : DETAILS.filter(([k]) => !MORE.includes(k));
@@ -323,7 +323,7 @@ function Campaign({ c, days, admin, onChange }) {
             </table>
           </div>
         )}
-        <div className="text-xs mt-1" style={{ color: C.mute }}>“Shown” is how many times the ad appeared. “Calls” counts calls from the ad’s call button. A dash means the figure is not in yet. Spent is as Google reports it, before GST.</div>
+        <div className="text-xs mt-1" style={{ color: C.mute }}>“Shown” is how many times the ad appeared.{any("calls") && " “Calls” counts calls from the ad’s call button."} A dash means the figure is not in yet; totals show once every day is in.{any("cost") && " Spent is as Google reports it, before GST."}</div>
         {admin && (<>
           <Import c={c} onDone={onChange} />
           <button className="text-xs underline mt-1" style={{ color: C.deep }} onClick={() => setAdding(!adding)}>{adding ? "Close" : "Enter or correct one day by hand"}</button>
