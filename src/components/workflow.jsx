@@ -274,6 +274,7 @@ export function Cycles({ projectId, admin = false, role = null }) {
 /* ───────── the new website: a first look (shared design pictures only, no link) ───────── */
 export function WebsitePreview({ projectId, compact = false }) {
   const [urls, setUrls] = useState(null);
+  const [big, setBig] = useState(null);
   const pics = useRows(() => supabase.from("files").select("id,name,storage_path,mime").eq("project_id", projectId).eq("client_visible", true).eq("category", "design").like("mime", "image/%").order("name").limit(4), [projectId]);
   useEffect(() => {
     if (!pics.rows?.length) return;
@@ -294,20 +295,29 @@ export function WebsitePreview({ projectId, compact = false }) {
       </Link>
     );
   }
+  // Whole pictures (never cropped): one per row on a phone, two on a computer; tap one to see it large
   return (
     <Card className="mt-4"><div id="item-website-preview">
       <div className="font-semibold" style={{ color: C.deep }}>A first look at your new website</div>
-      <div className="text-xs mb-3" style={{ color: C.mute }}>In English and Hindi. More soon.</div>
-      <div className="flex gap-3 overflow-x-auto pb-1 items-start">
+      <div className="text-xs mb-3" style={{ color: C.mute }}>In English and Hindi. More soon. Tap a picture to see it larger.</div>
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
         {pics.rows.map((p) => (
-          <div key={p.id} className="shrink-0" style={{ width: wide(p.name) ? 300 : 140 }}>
+          <figure key={p.id} className="m-0">
             {urls?.[p.storage_path]
-              ? <img src={urls[p.storage_path]} alt="A first look at the new website" loading="lazy" className="w-full rounded" style={{ border: `1px solid ${C.rule}`, aspectRatio: wide(p.name) ? "16 / 10" : "390 / 844", objectFit: "cover", objectPosition: "top" }} />
+              ? <button type="button" onClick={() => setBig(p)} className="block w-full p-0 rounded overflow-hidden" style={{ border: `1px solid ${C.rule}`, background: C.card, cursor: "zoom-in" }} aria-label={`See larger: ${caption(p.name)}`}>
+                  <img src={urls[p.storage_path]} alt={`New website: ${caption(p.name)}`} loading="lazy" className="block w-full h-auto" />
+                </button>
               : <div className="rounded" style={{ background: C.bg, aspectRatio: wide(p.name) ? "16 / 10" : "390 / 844" }} />}
-            <div className="text-xs mt-1" style={{ color: C.mute }}>{caption(p.name)}</div>
-          </div>
+            <figcaption className="text-xs mt-1" style={{ color: C.mute }}>{caption(p.name)}</figcaption>
+          </figure>
         ))}
       </div>
+      {big && urls?.[big.storage_path] && (
+        <div role="dialog" aria-modal="true" aria-label={caption(big.name)} onClick={() => setBig(null)} className="fixed inset-0 z-50 flex flex-col items-center justify-center p-3" style={{ background: "rgba(0,0,0,.85)", cursor: "zoom-out" }}>
+          <img src={urls[big.storage_path]} alt={`New website: ${caption(big.name)}`} className="block rounded" style={{ maxWidth: "100%", maxHeight: "85vh", objectFit: "contain", background: "#fff" }} />
+          <div className="text-sm mt-2" style={{ color: "#fff" }}>{caption(big.name)} · tap anywhere to close</div>
+        </div>
+      )}
     </div></Card>
   );
 }
