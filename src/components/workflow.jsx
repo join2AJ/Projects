@@ -8,6 +8,7 @@ import { supabase } from "../lib/supabase.js";
 import { useRows } from "../lib/useRows.js";
 import { fmtDate, fmtDateTime, today } from "../lib/money.js";
 import { weeklyLabel, nextUpdate, loadChanges } from "../lib/weekly.js";
+import { usesSection } from "../data/studio.js";
 import { C, Chip, H2, P, Card, T } from "./ui.jsx";
 import { StageBar } from "./parts.jsx";
 import { Timeline } from "./activity.jsx";
@@ -417,7 +418,7 @@ export function ClientHome({ p, role, needs, go, since, name }) {
           <div className="text-xs mt-2" style={{ color: C.mute }}>Next update: {next ? weeklyLabel(next.at) : "Tuesday 11:00 IST"}</div>
         </Card>
       </div>
-      <Card className="mt-4">
+      {usesSection(p, "numbers") && <Card className="mt-4">
         <div className="flex items-baseline justify-between gap-2 mb-2">
           <span className="font-semibold" style={{ color: C.deep }}>Search campaign results</span>
           <Link className="text-xs underline" style={{ color: C.deep }} to="?tab=numbers">See all results</Link>
@@ -435,7 +436,7 @@ export function ClientHome({ p, role, needs, go, since, name }) {
             ))}
           </div>
         )}
-      </Card>
+      </Card>}
       <WebsitePreview projectId={p.id} />
       <H2>Where we are</H2>
       <StageBar stage={p.stage} />
