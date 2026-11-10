@@ -188,3 +188,13 @@ export const answerBy = (updateDay) => {
   d.setUTCDate(d.getUTCDate() + 2);
   return d.toISOString().slice(0, 10);
 };
+
+// Project sections that can be switched off per project (Overview and the client's Home are always there)
+export const SECTIONS = [
+  ["promotion", "Promotion plan"], ["meetings", "Meetings"], ["decisions", "Decisions"], ["cycles", "Monthly cycles"], ["gantt", "Timeline chart"],
+  ["byservice", "By service"], ["updates", "Updates"], ["deliverables", "Deliverables & sign-off"], ["issues", "Issues"], ["requests", "Requests"], ["files", "Files"],
+  ["numbers", "Current results"], ["report", "Previous reports & analysis"], ["money", "Money"], ["time", "Time"],
+  ["preview", "Client’s home (preview)"], ["seen", "What the client views"], ["shared", "Shared vs private"], ["activity", "Activity"], ["logins", "Tools and logins"],
+];
+// A project with no list saved uses every section
+export const usesSection = (p, k) => !p?.sections?.length || p.sections.includes(k);

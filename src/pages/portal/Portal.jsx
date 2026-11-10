@@ -16,6 +16,7 @@ import { Campaigns } from "../../components/campaigns.jsx";
 import { WebsitePreview } from "../../components/workflow.jsx";
 import { useNeedsYou, ClientHome, Deliverables, Cycles, useFocusItem } from "../../components/workflow.jsx";
 import { track } from "../../lib/track.js";
+import { usesSection } from "../../data/studio.js";
 
 export function Portal() {
   const { session, profile } = useAuth();
@@ -131,6 +132,10 @@ function ClientProject({ p, role, visible, since, tab, setTab, name, preview = f
     ["requests", withBadge("Requests & files", c.requests), [["requests", withBadge("Requests", c.requests)], ["files", "Files"]]],
     ["money", withBadge("Money", c.money), [["money", withBadge("Money", c.money)]]],
   ];
+  // Sections switched off for this project are left out (client tab names map to the studio's section names)
+  const ALIAS = { approvals: "deliverables", monthly: "cycles" };
+  const used = groups.map(([g, l, t]) => [g, l, t.filter(([k]) => k === "home" || usesSection(p, ALIAS[k] || k))]).filter(([, , t]) => t.length);
+  groups.splice(0, groups.length, ...used);
   const tabs = flatTabs(groups);
   const known = tabs.some(([id]) => id === tab) || tab === "index";
   const t = known ? tab : "home";

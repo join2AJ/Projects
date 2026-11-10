@@ -23,7 +23,7 @@ import { TabIndex } from "../../components/tabindex.jsx";
 import { NavTabs, flatTabs } from "../../components/navtabs.jsx";
 import { Gantt } from "../../components/gantt.jsx";
 import { SharedOverview } from "../../components/shared.jsx";
-import { WEEKLY, answerBy } from "../../data/studio.js";
+import { WEEKLY, answerBy, SECTIONS, usesSection } from "../../data/studio.js";
 import { Deliverables, Cycles, ClientHome, useNeedsYou, HealthChip, useHealth } from "../../components/workflow.jsx";
 import { useAuth } from "../../lib/auth.jsx";
 import { useMyRole } from "../portal/Portal.jsx";
@@ -42,6 +42,8 @@ export function ProjectForm({ initial, onSaved }) {
   const [newClient, setNewClient] = useState({ name: "", org: "", email: "", phone: "" });
   const [msg, setMsg] = useState(null);
   const set = (k) => (e) => setP({ ...p, [k]: e.target.value });
+  const uses = (k) => usesSection(p, k);
+  const toggle = (k) => { const on = p.sections || SECTIONS.map(([x]) => x); setP({ ...p, sections: on.includes(k) ? on.filter((x) => x !== k) : [...on, k] }); };
 
   const save = async (e) => {
     e.preventDefault();
@@ -54,7 +56,7 @@ export function ProjectForm({ initial, onSaved }) {
     const body = {
       slug: p.slug, name: p.name, ...(p.code ? { code: p.code.trim().toUpperCase() } : {}), stage: p.stage, client_id, summary: p.summary || null, brief: p.brief || null,
       started_on: p.started_on || null, ended_on: p.ended_on || null, report_key: p.report_key || null,
-      next_meeting_at: p.next_meeting_at ? new Date(p.next_meeting_at).toISOString() : null, next_meeting_note: p.next_meeting_note || null, ads_cap: p.ads_cap === "" || p.ads_cap == null ? null : Number(p.ads_cap), gst_applies: p.gst_applies !== false,
+      next_meeting_at: p.next_meeting_at ? new Date(p.next_meeting_at).toISOString() : null, next_meeting_note: p.next_meeting_note || null, sections: p.sections?.length ? p.sections : null, ads_cap: p.ads_cap === "" || p.ads_cap == null ? null : Number(p.ads_cap), gst_applies: p.gst_applies !== false,
     };
     const { data, error } = p.id
       ? await supabase.from("projects").update(body).eq("id", p.id).select().single()
@@ -70,7 +72,7 @@ export function ProjectForm({ initial, onSaved }) {
         <L label="Project name"><input required value={p.name || ""} onChange={(e) => setP({ ...p, name: e.target.value, slug: p.id ? p.slug : e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") })} className={field} style={fs} /></L>
         <L label="Project code (e.g. TBT-2610; leave empty to make one)"><input pattern="[A-Za-z0-9]{2,6}-[0-9]{4}[A-Za-z]?" value={p.code || ""} onChange={set("code")} className={field} style={fs} /></L>
         <L label="Link name (client URL: /portal/p/…)"><input required pattern="[a-z0-9\-]+" value={p.slug || ""} onChange={set("slug")} className={field} style={fs} /></L>
-        <L label="Clinic">
+        <L label="Client">
           <select value={p.client_id || ""} onChange={set("client_id")} className={field} style={fs}>
             <option value="">—</option>
             {(clients.rows || []).map((c) => <option key={c.id} value={c.id}>{c.code ? `${c.code} · ` : ""}{c.name}{c.org ? `, ${c.org}` : ""}</option>)}
@@ -85,12 +87,18 @@ export function ProjectForm({ initial, onSaved }) {
         <L label="Brief" wide><textarea rows={2} value={p.brief || ""} onChange={set("brief")} className={field} style={fs} /></L>
         <L label="Started"><input type="date" value={p.started_on || ""} onChange={set("started_on")} className={field} style={fs} /></L>
         <L label="Ended"><input type="date" value={p.ended_on || ""} onChange={set("ended_on")} className={field} style={fs} /></L>
-        <L label="Extra one-off update (optional; weekly updates are every Tuesday 11:00)"><input type="datetime-local" value={localDT} onChange={set("next_meeting_at")} className={field} style={fs} /></L>
-        <L label="Extra update about"><input value={p.next_meeting_note || ""} onChange={set("next_meeting_note")} className={field} style={fs} /></L>
-        <L label="Client’s ad spend limit (₹ / month, incl. GST)"><input type="number" min="0" value={p.ads_cap ?? ""} onChange={set("ads_cap")} className={field} style={fs} /></L>
+        {uses("updates") && <><L label="Extra one-off update (optional; weekly updates are every Tuesday 11:00)"><input type="datetime-local" value={localDT} onChange={set("next_meeting_at")} className={field} style={fs} /></L>
+        <L label="Extra update about"><input value={p.next_meeting_note || ""} onChange={set("next_meeting_note")} className={field} style={fs} /></L></>}
+        {uses("promotion") && <L label="Client’s ad spend limit (₹ / month, incl. GST)"><input type="number" min="0" value={p.ads_cap ?? ""} onChange={set("ads_cap")} className={field} style={fs} /></L>}
         <label className="flex items-center gap-2 text-sm mb-3"><input type="checkbox" checked={p.gst_applies !== false} onChange={(e) => setP({ ...p, gst_applies: e.target.checked })} /> Charge GST on this project <Link to="/studio/tax" className="text-xs underline" style={{ color: C.mute }}>(only when your GSTIN is set: tax details)</Link></label>
-        <L label="Custom report (optional)"><select value={p.report_key || ""} onChange={set("report_key")} className={field} style={fs}><option value="">None</option>{Object.entries(REPORTS).map(([k, r]) => <option key={k} value={k}>{r.label}</option>)}</select></L>
+        {uses("report") && <L label="Custom report (optional)"><select value={p.report_key || ""} onChange={set("report_key")} className={field} style={fs}><option value="">None</option>{Object.entries(REPORTS).map(([k, r]) => <option key={k} value={k}>{r.label}</option>)}</select></L>}
       </div>
+      <fieldset className="mb-3 p-3 rounded" style={{ border: `1px solid ${C.rule}` }}>
+        <legend className="text-xs px-1" style={{ color: C.mute }}>Sections this project uses (others are hidden for you and the client)</legend>
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          {SECTIONS.map(([k, l]) => <label key={k} className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={uses(k)} onChange={() => toggle(k)} /> {l}</label>)}
+        </div>
+      </fieldset>
       <button type="submit" className="px-4 py-2 rounded text-sm font-semibold" style={{ background: C.deep, color: "#fff" }}>{p.id ? "Save project" : "Create project"}</button>
       {msg && <span className="ml-3 text-sm" style={{ color: C[msg[0]] }}>{msg[1]}</span>}
     </form>
@@ -316,7 +324,9 @@ export default function StudioProject() {
     ["money", "Money", [["money", "Money"], ["time", "Time"]]],
     ["client", "Client", [["preview", "Client’s home (preview)"], ["seen", "What the client views"], ["shared", "Shared vs private"], ["activity", "Activity"], ["logins", "Tools and logins"]]],
   ];
-  const groups = owner ? all : all.map(([g, l, t]) => [g, l, t.filter(([k]) => !TEAM_HIDDEN.includes(k))]).filter(([, , t]) => t.length);
+  // Only the sections this project uses (Overview always); the team never sees the private ones
+  const keep = (k) => k === "overview" || usesSection(p, k);
+  const groups = all.map(([g, l, t]) => [g, l, t.filter(([k]) => keep(k) && (owner || !TEAM_HIDDEN.includes(k)))]).filter(([, , t]) => t.length);
   // Old links keep working
   const ALIAS = { work: "updates", timeline: "preview", access: "overview" };
   const tabs = flatTabs(groups);
